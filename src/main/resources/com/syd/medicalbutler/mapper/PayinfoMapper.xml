@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.syd.medicalbutler.mapper.PayinfoMapper">
+
+    <resultMap id="BaseResultMap" type="com.syd.medicalbutler.pojo.Payinfo">
+            <id property="id" column="id" />
+            <result property="date" column="date" />
+            <result property="clientId" column="client_id" />
+            <result property="projectId" column="project_id" />
+            <result property="price" column="price" />
+            <result property="paystatus" column="paystatus" />
+            <result property="isdel" column="isdel" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,date,client_id,project_id,price,paystatus,
+        isdel
+    </sql>
+</mapper>

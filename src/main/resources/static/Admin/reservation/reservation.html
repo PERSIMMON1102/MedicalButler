@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>用户回访（复查）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="../../layui/css/layui.css" rel="stylesheet">
+    <style>
+        body{ padding:12px }
+        .tool-bar{ margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .time-range{ white-space:nowrap; }
+        @media (max-width: 720px){
+            #reserverFormBox{ width:100% !important; box-sizing:border-box; padding:12px; }
+            .layui-form-label{ width:100% !important; text-align:left; padding-bottom:6px; }
+            .layui-input-block{ margin-left:0 !important; }
+        }
+        .project-meta{ color:#6b7280; font-size:12px; margin-top:6px; }
+    </style>
+</head>
+<body>
+<div class="tool-bar">
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input type="text" id="searchText" class="layui-input" placeholder="按客户ID/项目名搜索" style="width:240px;">
+        <select id="filterStatus" class="layui-select" style="width:140px;">
+            <option value="">全部状态</option>
+            <option value="pending">待审核</option>
+            <option value="confirmed">已确认</option>
+            <option value="canceled">已取消</option>
+            <option value="completed">已完成</option>
+        </select>
+        <input type="text" id="dateRange" class="layui-input" placeholder="预约日期范围" style="width:220px;">
+        <button class="layui-btn" id="btnSearch">搜索</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:8px;">
+        <button class="layui-btn layui-btn-danger" id="btnBatchCancel" title="先选择多条数据再点击">批量取消</button>
+        <button class="layui-btn layui-btn-normal" id="btnAdd">新建预约</button>
+    </div>
+</div>
+
+<table id="reserverTable" lay-filter="reserverTableFilter"></table>
+
+<script type="text/html" id="reserverTpl">
+    <a class="layui-btn layui-btn-xs" lay-event="view">查看</a>
+    {{#  if(d.status === 'pending'){ }}
+    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="audit">审核</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="cancel">取消</a>
+    {{#  } else if(d.status === 'confirmed'){ }}
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="cancel">取消</a>
+    {{#  } else { }}
+    <a class="layui-btn layui-btn-primary layui-btn-xs" lay-event="view">详情</a>
+    {{#  } }}
+</script>
+
+<div id="reserverFormBox" style="display:none; padding:16px; width:720px;">
+    <form class="layui-form" lay-filter="reserverForm">
+        <input type="hidden" name="id" />
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">客户ID</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <input type="text" name="client_id" required lay-verify="required" class="layui-input" placeholder="必须填写">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">项目</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <select name="project_id" id="selectProject" lay-verify="required">
+                    <option value="">请选择项目</option>
+                </select>
+                <div id="projectMeta" class="project-meta"></div>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">预约时间</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <input type="text" name="date" id="reserverDate" required lay-verify="required|dateRange" class="layui-input" placeholder="yyyy-MM-dd HH:mm ~ yyyy-MM-dd HH:mm">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">备注</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <textarea name="comment" class="layui-textarea" placeholder="可选"></textarea>
+            </div>
+        </div>
+
+        <div style="text-align:right;">
+            <button type="button" class="layui-btn layui-btn-primary" id="btnCancelReserver">取消</button>
+            <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submitReserver">保存</button>
+        </div>
+    </form>
+</div>
+
+<script src="../../layui/layui.js"></script>
+<script>
+    layui.use(['table','layer','form','laydate','jquery'], function(){
+        var table = layui.table, layer = layui.layer, form = layui.form, laydate = layui.laydate, $ = layui.$;
+
+        // 请按后端实际接口替换
+        var API = {
+            list: '/report/reservations',     // 或 '/api/reservations'
+            get: '/report/reservations/',     // + id
+            create: '/report/reservations',
+            update: '/report/reservations/',  // + id
+            remove: '/report/reservations/',  // + id or batch
+            projects: '/report/projects'      // 返回 Project 列表，Project 包含 id,name,itemIds
+        };
+
+        // 日期控件
+        laydate.render({ elem: '#dateRange', range: true, type: 'date', trigger:'click' });
+        laydate.render({ elem: '#reserverDate', type: 'datetime', range: ' ~ ', format:'yyyy-MM-dd HH:mm', trigger:'click' });
+
+        form.verify({
+            dateRange: function(value){
+                if(!value) return '请填写预约时间';
+                var sep = value.indexOf('~')>-1 ? '~' : ' ~ ';
+                if(value.indexOf('~')===-1 && value.indexOf('~')===-1){ /*兼容*/ }
+                if(value.indexOf('~')===-1 && value.indexOf('~')===-1 && value.indexOf('~')===-1){
+                    // 若用户没有使用 ~，也接收
+                }
+                if(value.indexOf('~')===-1) return '请使用 ~ 分隔起止时间';
+                var parts = value.split('~');
+                if(parts.length<2 || !parts[0].trim() || !parts[1].trim()) return '请填写完整的起止时间';
+                return;
+            }
+        });
+
+        // 表格渲染
+        var tableId = 'reserverTableReload';
+        var tableIns = table.render({
+            elem: '#reserverTable',
+            id: tableId,
+            cols: [[
+                {type:'checkbox', fixed:'left'},
+                {field:'id', title:'ID', width:90, sort:true},
+                {field:'client_id', title:'客户ID', width:130},
+                {field:'project_name', title:'项目', minWidth:180},
+                {field:'date', title:'预约时间', width:240},
+                {field:'status', title:'状态', width:120, align:'center'},
+                {field:'createdate', title:'创建时间', width:160, sort:true},
+                {title:'操作', toolbar:'#reserverTpl', width:220, align:'center'}
+            ]],
+            page:true, limit:12, height:'full-160',
+            url:API.list, method:'GET',
+            parseData: function(res){
+                if(!res) return {code:1,msg:'服务器返回空',count:0,data:[]};
+                if(res.code === 0){
+                    // 支持 data.records / data.orders / data
+                    if(res.data && Array.isArray(res.data.records)) return { code:0, msg:res.msg||'', count:res.data.total||res.data.records.length||0, data: res.data.records };
+                    if(res.data && Array.isArray(res.data.orders)) return { code:0, msg:res.msg||'', count:res.data.total||res.data.orders.length||0, data: res.data.orders };
+                    if(Array.isArray(res.data)) return { code:0, msg:res.msg||'', count:res.data.length, data:res.data };
+                    if(Array.isArray(res.records)) return { code:0, msg:res.msg||'', count:res.total||res.records.length||0, data:res.records };
+                }
+                return { code: res.code||1, msg: res.msg||'加载失败', count:0, data:[] };
+            },
+            request: {
+                pageName: 'page', limitName: 'limit'
+            },
+            where: {}
+        });
+
+        // 搜索
+        $('#btnSearch').on('click', function(){
+            var q = $('#searchText').val().trim();
+            var status = $('#filterStatus').val();
+            var range = $('#dateRange').val().trim();
+            var params = { q: q, status: status };
+            if(range){
+                var sep = range.indexOf('~')>-1 ? '~' : ' ~ ';
+                var parts = range.split(sep);
+                if(parts.length>=2){
+                    params.start_date = parts[0].trim();
+                    params.end_date = parts[1].trim();
+                } else {
+                    params.range = range;
+                }
+            }
+            table.reload(tableId, { where: params, page: { curr: 1 } });
+        });
+
+        // 加载项目并缓存，解析 itemIds
+        var projectsCache = null;
+        function loadProjects(cb){
+            if(projectsCache){ return cb(projectsCache); }
+            $('#selectProject').html('<option value="">加载中...</option>');
+            $.ajax({
+                url: API.projects, method: 'GET', dataType: 'json',
+                success: function(res){
+                    if(res && res.code === 0){
+                        var list = Array.isArray(res.data) ? res.data : (Array.isArray(res.data && res.data.records) ? res.data.records : []);
+                        projectsCache = list.map(function(p){
+                            // 解析 itemIds 字符串为数组，兼容后端 project.itemIds 字段
+                            var itemIds = [];
+                            if(p.itemIds && typeof p.itemIds === 'string'){
+                                itemIds = p.itemIds.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+                            }
+                            return Object.assign({}, p, { _itemIdsArr: itemIds });
+                        });
+                        cb(projectsCache);
+                    } else {
+                        $('#selectProject').html('<option value="">加载失败</option>');
+                        layer.msg('项目列表加载失败');
+                    }
+                },
+                error: function(){ $('#selectProject').html('<option value="">加载错误</option>'); layer.msg('项目列表请求错误'); }
+            });
+        }
+
+        // 当选择项目时，显示项目的简单信息（子项数量、名称示例）
+        $(document).on('change', '#selectProject', function(){
+            var pid = $(this).val();
+            var metaDiv = $('#projectMeta');
+            metaDiv.text('');
+            if(!pid) return;
+            if(!projectsCache){
+                loadProjects(function(){ showProjectMeta(pid); });
+            } else {
+                showProjectMeta(pid);
+            }
+            function showProjectMeta(pid){
+                var p = (projectsCache || []).find(function(x){ return String(x.id) === String(pid) || String(x.project_id) === String(pid); });
+                if(!p){ metaDiv.text('未找到项目信息'); return; }
+                var itemsCount = (p._itemIdsArr || []).length;
+                metaDiv.text('包含子项目：' + itemsCount + ' 项' + (itemsCount>0 ? '（示例ID：' + (p._itemIdsArr.slice(0,3).join(',') ) + '）' : '') );
+            }
+        });
+
+        // 打开表单（新建或编辑）
+        var reserverFormIndex = null;
+        function openReserverForm(id){
+            form.val('reserverForm', { id:'', client_id:'', project_id:'', date:'', comment:'' });
+            loadProjects(function(list){
+                var opts = '<option value="">请选择项目</option>';
+                list.forEach(function(p){ opts += '<option value="'+(p.id||p.project_id)+'">'+(p.name||p.title||p.project_name)+'</option>'; });
+                $('#selectProject').html(opts);
+                form.render('select');
+            });
+
+            reserverFormIndex = layer.open({
+                type:1, title: id ? '编辑预约' : '新建预约',
+                area: ['720px','520px'],
+                content: $('#reserverFormBox'),
+                success: function(layero, index){
+                    if(id){
+                        var loadIdx = layer.load(2);
+                        $.ajax({
+                            url: API.get + id, method: 'GET', dataType:'json',
+                            success: function(res){
+                                layer.close(loadIdx);
+                                if(res && res.code === 0 && res.data){
+                                    var d = res.data;
+                                    // 若后端返回 start/end，可组合为 date 字符串
+                                    var dateStr = d.date || (d.start && d.end ? (d.start + ' ~ ' + d.end) : '');
+                                    form.val('reserverForm', {
+                                        id: d.id,
+                                        client_id: d.client_id,
+                                        project_id: d.project_id,
+                                        date: dateStr,
+                                        comment: d.comment || d.info || ''
+                                    });
+                                    form.render();
+                                } else {
+                                    layer.msg(res.msg || '获取详情失败');
+                                }
+                            },
+                            error: function(){ layer.close(loadIdx); layer.msg('请求失败'); }
+                        });
+                    }
+                },
+                end: function(){ $('#reserverFormBox').hide(); }
+            });
+        }
+
+        // 表单提交
+        form.on('submit(submitReserver)', function(fd){
+            var data = $.extend({}, fd.field);
+            if(!data.id) delete data.id;
+            var isEdit = fd.field.id && fd.field.id.trim() !== '';
+            var url = isEdit ? (API.update + fd.field.id) : API.create;
+            var method = isEdit ? 'PUT' : 'POST';
+
+            // 可根据后端需要将 date 拆分为 start/end
+            if(data.date && data.date.indexOf('~')>-1){
+                var parts = data.date.split('~');
+                if(parts.length>=2){
+                    data.start = parts[0].trim();
+                    data.end = parts[1].trim();
+                    // 可选择删除 data.date 或保留
+                    delete data.date;
+                }
+            }
+
+            var submitBtn = $('button[lay-submit]');
+            submitBtn.prop('disabled', true);
+
+            $.ajax({
+                url: url,
+                method: method,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(res){
+                    submitBtn.prop('disabled', false);
+                    if(res && res.code === 0){
+                        layer.msg('保存成功');
+                        layer.close(reserverFormIndex);
+                        table.reload(tableId);
+                    } else {
+                        layer.msg(res.msg || '保存失败');
+                    }
+                },
+                error: function(){ submitBtn.prop('disabled', false); layer.msg('网络错误'); }
+            });
+
+            return false;
+        });
+
+        $('#btnCancelReserver').on('click', function(){ layer.close(reserverFormIndex); });
+
+        // 表格工具栏事件
+        table.on('tool(reserverTableFilter)', function(obj){
+            var d = obj.data, e = obj.event;
+            if(e === 'view'){ openReserverDetail(d.id); }
+            else if(e === 'audit'){
+                layer.prompt({ title: '审核备注（可选）', formType: 0 }, function(val, idx){
+                    layer.confirm('确认审核通过该预约？', function(cidx){
+                        var loading = layer.load(2);
+                        $.ajax({
+                            url: API.update + d.id,
+                            method: 'PUT',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ status: 'confirmed', audit_comment: val }),
+                            success: function(res){
+                                layer.close(loading);
+                                if(res && res.code === 0){ layer.msg('操作成功'); table.reload(tableId); }
+                                else layer.msg(res.msg || '操作失败');
+                            },
+                            error: function(){ layer.close(loading); layer.msg('网络错误'); }
+                        });
+                        layer.close(cidx);
+                    });
+                    layer.close(idx);
+                });
+            }
+            else if(e === 'cancel'){
+                layer.confirm('确认取消该预约？', function(idx){
+                    var loading = layer.load(2);
+                    $.ajax({
+                        url: API.remove + d.id,
+                        method: 'DELETE',
+                        success: function(res){
+                            layer.close(loading);
+                            if(res && res.code === 0){ layer.msg('已取消'); table.reload(tableId); }
+                            else layer.msg(res.msg || '取消失败');
+                        },
+                        error: function(){ layer.close(loading); layer.msg('网络错误'); }
+                    });
+                    layer.close(idx);
+                });
+            }
+        });
+
+        function openReserverDetail(id){
+            layer.open({
+                type: 2,
+                title: '预约详情',
+                area: ['900px','640px'],
+                content: './reserver-detail.html?id=' + id
+            });
+        }
+
+        $('#btnAdd').on('click', function(){ openReserverForm(); });
+
+        $('#btnBatchCancel').on('click', function(){
+            var checkStatus = table.checkStatus(tableId);
+            var data = checkStatus.data;
+            if(!data || data.length === 0) return layer.msg('请先选择要操作的记录');
+            layer.confirm('确认取消选择的 '+ data.length +' 条预约？', function(idx){
+                var ids = data.map(function(item){ return item.id; });
+                var loading = layer.load(2);
+                $.ajax({
+                    url: API.remove + 'batch',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ ids: ids }),
+                    success: function(res){
+                        layer.close(loading);
+                        if(res && res.code === 0){ layer.msg('操作成功'); table.reload(tableId); }
+                        else layer.msg(res.msg || '操作失败');
+                    },
+                    error: function(){ layer.close(loading); layer.msg('网络错误'); }
+                });
+                layer.close(idx);
+            });
+        });
+
+    });
+</script>
+</body>
+</html>

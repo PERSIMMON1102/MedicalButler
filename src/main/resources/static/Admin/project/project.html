@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>检查项管理系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/layui@2.9.7/dist/css/layui.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body{
+            padding: 15px;
+            background: #f2f7fd;
+            font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: #333;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #1e9fff 0%, #0971ce 100%);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(30, 159, 255, 0.2);
+            color: white;
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1 i {
+            font-size: 26px;
+        }
+        .tool-bar{
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .search-box{
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex: 1;
+            min-width: 220px;
+        }
+        .thumbnail{
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            vertical-align: middle;
+            transition: all 0.3s;
+            border: 1px solid #eee;
+        }
+        .thumbnail:hover {
+            transform: scale(1.8);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+        }
+        .img-preview img{
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 2px;
+            cursor: pointer;
+        }
+        .upload-hint {
+            display: inline-block;
+            color: #999;
+            margin-left: 8px;
+            font-size: 12px;
+            vertical-align: middle;
+        }
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .action-buttons .layui-btn {
+            border-radius: 4px;
+        }
+        .layui-table-view {
+            margin: 0;
+            border: none;
+            border-radius: 0 0 8px 8px;
+        }
+        .layui-table-tool {
+            border: none;
+            border-bottom: 1px solid #f6f6f6;
+            background: #fafafa;
+            border-radius: 8px 8px 0 0;
+        }
+        .layui-table-page {
+            border: none;
+            margin: 0;
+            padding: 15px;
+            background: #fff;
+            border-top: 1px solid #f6f6f6;
+            border-radius: 0 0 8px 8px;
+        }
+        .layui-table-cell {
+            height: auto;
+            padding: 8px 15px;
+            line-height: 1.6;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            background: #f8f8f8;
+        }
+        .status-active {
+            background: #e8f9f0;
+            color: #1bbb69;
+        }
+        .status-inactive {
+            background: #fef7ef;
+            color: #ff9900;
+        }
+        .point-display {
+            display: inline-block;
+            padding: 3px 10px;
+            background: #f0f8ff;
+            border-radius: 12px;
+            color: #1e9fff;
+            font-weight: 500;
+        }
+        .stats-card {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            flex: 1;
+            min-width: 200px;
+            background: #fff;
+            border-radius: 8px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+        }
+        .stat-content {
+            flex: 1;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-title {
+            color: #666;
+            font-size: 14px;
+        }
+        @media (max-width: 768px){
+            .tool-bar{ padding: 10px; }
+            .search-box{ width: 100%; }
+            .thumbnail{ width: 50px; height: 50px; }
+            .img-preview img{ width: 100px; height: 100px; }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .header .buttons {
+                align-self: flex-end;
+            }
+            .stats-card {
+                flex-direction: column;
+            }
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            color: #999;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+<!--    <h1><i class="fas fa-clipboard-list"></i> 检查项管理系统</h1>-->
+    <div class="buttons">
+        <button class="layui-btn layui-btn-sm layui-btn-primary"><i class="fas fa-question-circle"></i> 帮助</button>
+        <button class="layui-btn layui-btn-sm layui-btn-primary"><i class="fas fa-download"></i> 导出</button>
+    </div>
+</div>
+
+<div class="stats-card">
+    <div class="stat-item">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #1e9fff 0%, #0971ce 100%);">
+            <i class="fas fa-list"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-number">86</div>
+            <div class="stat-title">总检查项数量</div>
+        </div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #1bbb69 0%, #0d9c55 100%);">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-number">72</div>
+            <div class="stat-title">启用中的检查项</div>
+        </div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-icon" style="background: linear-gradient(135deg, #ff9900 0%, #e67e22 100%);">
+            <i class="fas fa-trophy"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-number">1,245</div>
+            <div class="stat-title">总积分奖励</div>
+        </div>
+    </div>
+</div>
+
+<div class="tool-bar">
+    <div class="search-box">
+        <input type="text" id="searchName" class="layui-input" placeholder="按检查项名称搜索" style="min-width:160px; width:260px;">
+        <button class="layui-btn layui-btn-sm" id="btnSearch"><i class="layui-icon">&#xe615;</i> 搜索</button>
+        <button class="layui-btn layui-btn-sm layui-btn-primary" id="btnReset">重置</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:8px;">
+        <button class="layui-btn layui-btn-normal layui-btn-sm" id="btnAdd"><i class="layui-icon">&#xe654;</i> 新增检查项</button>
+        <button class="layui-btn layui-btn-danger layui-btn-sm" id="btnBatchDelete"><i class="layui-icon">&#xe640;</i> 批量删除</button>
+    </div>
+</div>
+
+<div class="card">
+    <table id="itemTable" lay-filter="itemTableFilter"></table>
+</div>
+
+<!-- 操作模板 -->
+<script type="text/html" id="itemToolbar">
+    <div class="action-buttons">
+        <a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit"><i class="fas fa-edit"></i> 编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="del"><i class="fas fa-trash"></i> 删除</a>
+    </div>
+</script>
+
+<!-- 表单 -->
+<div id="itemFormBox" style="display:none; padding:18px; max-width:720px; box-sizing:border-box;">
+    <form class="layui-form" lay-filter="itemForm">
+        <input type="hidden" name="id" />
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">名称</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <input type="text" name="name" required lay-verify="required|len100" placeholder="检查项名称" class="layui-input">
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">积分</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <input type="number" name="point" required lay-verify="required|int0" class="layui-input" min="0" value="0">
+            </div>
+        </div>
+
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label" style="width:110px">描述</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <textarea name="info" class="layui-textarea" style="height:120px;" maxlength="500" placeholder="可选，最多500字符"></textarea>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">图片</label>
+            <div style="margin-left:120px;">
+                <button type="button" class="layui-btn" id="itemUploadBtn"><i class="layui-icon">&#xe67c;</i> 上传</button>
+                <button type="button" class="layui-btn layui-btn-primary" id="btnRemoveItemPic">移除图片</button>
+                <span class="upload-hint">支持图片，最大 2MB</span>
+
+                <!-- 预览区域 -->
+                <div class="img-preview" id="itemImgPreview" style="margin-top:8px;"></div>
+                <!-- 隐藏字段保存图片URL -->
+                <input type="hidden" name="pic">
+            </div>
+        </div>
+
+        <div style="text-align:right;">
+            <button type="button" class="layui-btn layui-btn-primary" id="btnCancelItem">取消</button>
+            <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submitItem" id="btnSaveItem">保存</button>
+        </div>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/layui@2.9.7/dist/layui.js"></script>
+<script>
+    layui.use(['table','layer','form','upload','jquery'], function(){
+        var table = layui.table, layer = layui.layer, form = layui.form, upload = layui.upload, $ = layui.$;
+
+        var API = {
+            list: '/api/items',
+            get: '/api/items/',
+            create: '/api/items',
+            update: '/api/items/',
+            remove: '/api/items/',
+            batchDelete: '/api/items/batch-delete',
+            upload: '/api/upload'
+        };
+
+        // 简单请求封装
+        function request(opts){
+            var settings = $.extend({
+                method: 'GET',
+                dataType: 'json',
+                contentType: 'application/json'
+            }, opts);
+            if(settings.contentType === 'application/json' && settings.data && typeof settings.data !== 'string'){
+                settings.data = JSON.stringify(settings.data);
+            }
+            return $.ajax(settings);
+        }
+
+        function debounce(fn, wait){
+            var t;
+            return function(){
+                var ctx = this, args = arguments;
+                clearTimeout(t);
+                t = setTimeout(function(){ fn.apply(ctx, args); }, wait);
+            };
+        }
+
+        var tableId = 'itemTable';
+        var tableIns = table.render({
+            elem: '#'+tableId,
+            cols: [[
+                {type:'checkbox', fixed:'left'},
+                {field:'id', title:'ID', width:80, sort:true},
+                {field:'name', title:'名称', minWidth:180, templet: function(d){
+                        return '<span title="'+ escapeHtml(d.name||'') +'">'+ escapeHtml(d.name||'') +'</span>';
+                    }},
+                {field:'info', title:'描述', minWidth:220, templet:function(d){
+                        return d.info? '<span title="'+ escapeHtml(d.info) +'">'+ escapeHtml(d.info) +'</span>' : '-';
+                    }},
+                {field:'point', title:'积分', width:100, align:'center', templet: function(d){
+                        return '<span class="point-display">'+ (d.point || 0) +'</span>';
+                    }},
+                {field:'pic', title:'图片', width:140, align:'center', templet:function(d){
+                        if(d.pic){
+                            return '<div class="cell-img" data-row-id="'+ d.id +'"><img class="thumbnail" src="'+ d.pic +'" alt="图片预览"></div>';
+                        }
+                        return '<div class="cell-img" data-row-id="'+ d.id +'">-</div>';
+                    }},
+                {title:'操作', toolbar:'#itemToolbar', width:180, align:'center', fixed: 'right'}
+            ]],
+            page: {
+                layout: ['prev', 'page', 'next', 'skip', 'count', 'limit'],
+                groups: 5,
+                first: false,
+                last: false
+            },
+            limits: [5, 10, 20, 50],
+            limit: 10,
+            height: 'full-220',
+            url: API.list,
+            method: 'get',
+            request: {
+                pageName: 'page',
+                limitName: 'size'
+            },
+            response: {
+                statusCode: 0
+            },
+            parseData: function(res){
+                if(res && res.code === 0 && res.data){
+                    return {
+                        "code": 0,
+                        "msg": res.msg||'',
+                        "count": res.count || res.data.total || 0,
+                        "data": res.data.records || res.data || []
+                    };
+                }
+                return {
+                    "code": res && res.code || 1,
+                    "msg": res && res.msg || '加载失败',
+                    "count": 0,
+                    "data": []
+                };
+            },
+            text: { none: '暂无检查项数据' },
+            done: function(res, curr, count){
+                // 更新统计数据
+                $('.stat-number').eq(0).text(count);
+            }
+        });
+
+        // 缩略图点击预览
+        $('body').on('click', '.thumbnail', function(){
+            var src = $(this).attr('src');
+            layer.photos({ photos: { title: '图片预览', data: [{src: src}] }, anim: 5 });
+        });
+
+        var doSearch = debounce(function(){
+            table.reload(tableId, {
+                where: { name: $('#searchName').val() },
+                page: { curr: 1 }
+            });
+        }, 300);
+
+        $('#btnSearch').on('click', doSearch);
+        $('#searchName').on('keyup', function(e){
+            if(e.key === 'Enter' || e.keyCode === 13) doSearch();
+        });
+
+        $('#btnReset').on('click', function(){
+            $('#searchName').val('');
+            table.reload(tableId, {
+                where: { name: '' },
+                page: { curr: 1 }
+            });
+        });
+
+        $('#btnAdd').on('click', function(){
+            openItemForm();
+        });
+
+        $('#btnBatchDelete').on('click', function(){
+            var data = table.checkStatus(tableId).data;
+            if(!data || data.length === 0){
+                layer.msg('请选择要删除的条目', {icon: 2});
+                return;
+            }
+            var ids = data.map(function(i){ return i.id; });
+            var shown = ids.slice(0,8).join(',') + (ids.length>8? ' ...共'+ids.length+'项' : '');
+            layer.confirm('确认删除以下 ID？<div style="margin-top:8px;color:#666;">'+ shown +'</div>',
+                {icon: 3, title: '确认删除'}, function(idx){
+                    request({ url: API.batchDelete, method: 'POST', data: { ids: ids } })
+                        .done(function(res){
+                            if(res.code===0){
+                                layer.msg('删除成功', {icon: 1});
+                                table.reload(tableId);
+                            } else {
+                                layer.msg(res.msg||'删除失败', {icon: 2});
+                            }
+                        })
+                        .fail(function(){
+                            layer.msg('网络错误', {icon: 2});
+                        });
+                    layer.close(idx);
+                });
+        });
+
+        // 处理表格工具事件
+        table.on('tool(itemTableFilter)', function(obj){
+            var data = obj.data, event = obj.event;
+            if(event === 'edit'){
+                openItemForm(data.id);
+            }
+            else if(event === 'del'){
+                layer.confirm('确认删除该条目？', {icon: 3, title: '确认删除'}, function(idx){
+                    request({ url: API.remove + data.id, method: 'DELETE' })
+                        .done(function(res){
+                            if(res.code===0){
+                                layer.msg('删除成功', {icon: 1});
+                                table.reload(tableId);
+                            } else {
+                                layer.msg(res.msg||'删除失败', {icon: 2});
+                            }
+                        })
+                        .fail(function(){
+                            layer.msg('网络错误', {icon: 2});
+                        });
+                    layer.close(idx);
+                });
+            }
+        });
+
+        // 打开表单
+        var itemFormIndex = null;
+        function openItemForm(id){
+            form.val('itemForm', { id:'', name:'', point:0, info:'', pic:'' });
+            $('#itemImgPreview').empty();
+            $('#btnSaveItem').removeClass('layui-btn-disabled').prop('disabled', false);
+
+            itemFormIndex = layer.open({
+                type:1,
+                title: id? '编辑检查项' : '新增检查项',
+                area: ['92%','82%'],
+                maxWidth:'720px',
+                content: $('#itemFormBox'),
+                success: function(){
+                    initUpload();
+
+                    if(id){
+                        request({ url: API.get + id, method: 'GET' })
+                            .done(function(res){
+                                if(res.code === 0 && res.data){
+                                    var d = res.data;
+                                    if(Array.isArray(d)) d = d[0];
+                                    form.val('itemForm', {
+                                        id: d.id,
+                                        name: d.name,
+                                        point: d.point,
+                                        info: d.info,
+                                        pic: d.pic
+                                    });
+                                    if(d.pic){
+                                        $('input[name=pic]').val(d.pic);
+                                        $('#itemImgPreview').html('<img src="'+ d.pic +'" alt="图片">');
+                                    }
+                                } else {
+                                    layer.msg(res.msg || '加载失败', {icon: 2});
+                                }
+                            })
+                            .fail(function(){
+                                layer.msg('网络错误', {icon: 2});
+                            });
+                    }
+                }
+            });
+        }
+
+        // 上传图片，预览并写入隐藏域
+        var uploadInstance = null;
+        function initUpload(){
+            if(uploadInstance) uploadInstance = null;
+
+            uploadInstance = upload.render({
+                elem: '#itemUploadBtn',
+                url: API.upload,
+                accept: 'images',
+                size: 2048,
+                before: function(obj){
+                    obj.preview(function(index, file, result){
+                        $('#itemImgPreview').html('<img src="'+ result +'" alt="预览">');
+                    });
+                },
+                done: function(res){
+                    if(res && (res.code === 0 || res.code === 200 || res.status === 'ok')){
+                        var url = res.url || (res.data && (res.data.url || res.data.path)) || '';
+                        if(!url && res.data && typeof res.data === 'string') url = res.data;
+                        if(url){
+                            $('input[name=pic]').val(url);
+                            $('#itemImgPreview').html('<img src="'+ url +'" alt="图片">');
+                            layer.msg('上传成功', {icon:1});
+                        } else {
+                            layer.msg('上传成功，但未返回图片地址', {icon:0});
+                        }
+                    } else {
+                        layer.msg((res && res.msg) || '上传失败', {icon:2});
+                    }
+                },
+                error: function(){
+                    layer.msg('上传错误', {icon:2});
+                }
+            });
+        }
+
+        $('#btnRemoveItemPic').on('click', function(){
+            $('input[name=pic]').val('');
+            $('#itemImgPreview').empty();
+        });
+
+        form.verify({
+            len100: function(v){ if(v && v.length > 100) return '长度不得超过100字符'; },
+            int0: function(v){ if(!/^\d+$/.test(v)) return '请输入非负整数'; }
+        });
+
+        // 提交表单：防重复提交
+        form.on('submit(submitItem)', function(fd){
+            var data = fd.field;
+            var isEdit = data.id && data.id.trim() !== '';
+            var url = isEdit ? (API.update + data.id) : API.create;
+            var method = isEdit ? 'PUT' : 'POST';
+            var $save = $('#btnSaveItem');
+
+            $save.addClass('layui-btn-disabled').prop('disabled', true);
+
+            request({ url: url, method: method, data: data })
+                .done(function(res){
+                    if(res.code === 0){
+                        layer.msg('保存成功', {icon:1});
+                        layer.close(itemFormIndex);
+                        table.reload(tableId);
+                    } else {
+                        layer.msg(res.msg || '保存失败', {icon:2});
+                    }
+                })
+                .fail(function(){
+                    layer.msg('网络错误', {icon:2});
+                })
+                .always(function(){
+                    $save.removeClass('layui-btn-disabled').prop('disabled', false);
+                });
+
+            return false;
+        });
+
+        $('#btnCancelItem').on('click', function(){
+            layer.close(itemFormIndex);
+        });
+
+        // HTML 转义函数
+        function escapeHtml(str){
+            if(str === null || str === undefined) return '';
+            return String(str).replace(/[&<>"'`=\/]/g, function(ch){
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'}[ch];
+            });
+        }
+
+    });
+</script>
+
+<div class="footer">
+    <p>© 2023 检查项管理系统 | 技术支持: IT部门</p>
+</div>
+</body>
+</html>

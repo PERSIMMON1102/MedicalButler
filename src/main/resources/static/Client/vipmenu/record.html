@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <title>购买历史 - 移动优先（含详情与退款）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <link href="../../layui/css/layui.css" rel="stylesheet" />
+    <style>
+        :root{
+            --bg:#f5f7fb;
+            --card-bg:#fff;
+            --muted:#7d8794;
+            --primary:#1E9FFF;
+            --danger:#FF5722;
+            --gap:12px;
+        }
+        html,body{height:100%;margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial; -webkit-text-size-adjust:100%;}
+        .wrap{max-width:980px;margin:0 auto;padding:12px;}
+        .head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+        .head h2{margin:0;font-size:18px}
+        .muted{color:var(--muted);font-size:13px}
+        .panel{background:var(--card-bg);border-radius:10px;padding:12px;box-shadow:0 6px 18px rgba(31,41,55,0.04)}
+        .filter-toggle{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0}
+        .filters{display:none;flex-direction:column;gap:8px;margin-bottom:8px}
+        .filters.open{display:flex}
+        .filters .row{display:flex;gap:8px;align-items:center}
+        .filters .row .layui-input-inline{flex:1}
+        .list-cards{display:flex;flex-direction:column;gap:10px}
+        .card-item{background:var(--card-bg);border-radius:10px;padding:12px;box-shadow:0 4px 14px rgba(31,41,55,0.04);display:flex;justify-content:space-between;gap:8px}
+        .card-left{flex:1}
+        .card-title{font-weight:700;margin-bottom:6px}
+        .card-meta{color:var(--muted);font-size:13px;margin-bottom:8px}
+        .card-foot{display:flex;gap:8px;align-items:center}
+        .btn{padding:8px 10px;border-radius:8px;border:0;cursor:pointer}
+        .btn-view{background:linear-gradient(90deg,var(--primary),#3fb1ff);color:#fff}
+        .btn-del{background:var(--danger);color:#fff}
+        .btn-export{background:#fff;border:1px solid #e6eefc;color:var(--primary)}
+        .action-bar{position:fixed;left:12px;right:12px;bottom:12px;background:var(--card-bg);padding:10px;border-radius:12px;box-shadow:0 14px 36px rgba(31,41,55,0.12);display:flex;justify-content:space-between;align-items:center;gap:8px;z-index:999}
+        .empty{padding:28px;text-align:center;color:var(--muted)}
+        .table-wrap{display:none}
+        @media (min-width:720px){
+            .filter-toggle{display:none}
+            .filters{display:flex;flex-direction:row;gap:8px;margin-bottom:12px}
+            .panel{padding:16px}
+            .list-cards{display:none}
+            .table-wrap{display:block}
+        }
+        .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#f0f6ff;color:var(--primary);font-size:12px}
+        .small-muted{font-size:12px;color:var(--muted)}
+        .load-more{display:block;width:100%;padding:10px;border-radius:8px;background:#fff;border:1px dashed #eee;text-align:center;color:var(--muted);cursor:pointer;margin-top:8px}
+        .chk-wrap{display:flex;align-items:center;gap:8px}
+        .chk-wrap input[type="checkbox"]{width:18px;height:18px}
+        .btn { padding: 6px 10px; line-height: 1; display: inline-block; vertical-align: top; border-radius: 6px; }
+        .btn-view{ background: linear-gradient(90deg, var(--primary), #3fb1ff); color:#fff; }
+        .btn-del{ background: var(--danger); color:#fff; }
+        .btn-export{ background:#fff; border:1px solid #e6eefc; color:var(--primary) }
+        .btn-reserve{ background: #28a745; color:#fff; }
+        .detail-close-top {
+            position: absolute;
+            right: 18px;
+            top: 12px;
+            z-index: 9999;
+        }
+        /* 优化预约样式 */
+        .reserve-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+        .reserve-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .reserve-field{display:flex;flex-direction:column;gap:6px}
+        .reserve-actions{display:flex;justify-content:center;margin-top:12px}
+        @media (min-width:720px){
+            .reserve-grid{grid-template-columns:1fr 1fr 1fr;align-items:center}
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="head">
+        <div>
+            <h2>购买历史</h2>
+            <div class="muted" id="userHint">移动优先视图，支持卡片和表格两种展示</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <button class="layui-btn btn-export" id="btnExport">导出</button>
+            <button class="layui-btn layui-btn-danger" id="btnBatchDel">批量删除</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="filter-toggle">
+            <div style="display:flex;gap:8px;align-items:center">
+                <span class="badge" id="resultCount">0</span>
+                <div class="small-muted" id="descCount">条记录</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="layui-btn layui-btn-primary" id="btnToggleFilters">筛选</button>
+                <button class="layui-btn layui-btn-warm" id="btnSwitchView">切换表格</button>
+            </div>
+        </div>
+
+        <div class="filters" id="filters">
+            <div class="row" style="gap:8px">
+                <div class="layui-input-inline" style="flex:1">
+                    <input type="text" id="q" placeholder="客户/手机号/套餐" class="layui-input">
+                </div>
+                <div class="layui-input-inline" style="width:240px">
+                    <input type="text" id="dateRange" placeholder="时间范围" class="layui-input">
+                </div>
+            </div>
+            <div class="row" style="gap:8px;align-items:center">
+                <div class="layui-input-inline" style="width:160px">
+                    <select id="filterPay" class="layui-select">
+                        <option value="">支付方式（全部）</option>
+                        <option value="online">在线支付</option>
+                        <option value="card">实卡转入</option>
+                    </select>
+                </div>
+                <div class="layui-input-inline" style="width:160px">
+                    <select id="filterStatus" class="layui-select">
+                        <option value="">状态（全部）</option>
+                        <option value="1">已支付</option>
+                        <option value="0">未支付</option>
+                        <option value="2">已退款</option>
+                    </select>
+                </div>
+                <div style="margin-left:auto;display:flex;gap:8px">
+                    <button class="layui-btn" id="btnSearch">查询</button>
+                    <button class="layui-btn layui-btn-primary" id="btnReset">重置</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="list-cards" id="cardList"></div>
+        <div id="loadMoreWrap" style="text-align:center"><button id="loadMore" class="load-more">加载更多</button></div>
+
+        <div class="table-wrap" id="tableWrap">
+            <table class="layui-table" lay-size="sm">
+                <colgroup>
+                    <col width="40"><col width="160"><col width="160"><col><col width="80"><col width="90"><col width="90"><col width="110"><col width="120">
+                </colgroup>
+                <thead>
+                <tr>
+                    <th><input type="checkbox" id="chkAll"></th>
+                    <th>时间</th>
+                    <th>客户</th>
+                    <th>套餐</th>
+                    <th>数量</th>
+                    <th>单价</th>
+                    <th>总价</th>
+                    <th>支付方式</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody id="tbodyTable"></tbody>
+            </table>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+                <div class="muted">共 <span id="totalCount">0</span> 条记录</div>
+                <div id="pager"></div>
+            </div>
+        </div>
+
+        <div id="reservePanel" class="panel" style="margin-top:12px; display:none">
+            <div class="reserve-header">
+                <div><strong>发起预约</strong></div>
+                <div style="display:flex;gap:8px">
+                    <button class="layui-btn layui-btn-primary" id="closeReserve">关闭</button>
+                </div>
+            </div>
+
+            <form class="layui-form" id="clientForm" style="margin-top:6px;">
+                <input type="hidden" name="payinfo_id" value="0" />
+                <div class="reserve-grid">
+                    <div class="reserve-field">
+                        <label class="small-muted">联系人</label>
+                        <input type="text" name="client_name" placeholder="联系人姓名或用户名" class="layui-input">
+                    </div>
+
+                    <div class="reserve-field">
+                        <label class="small-muted">联系电话</label>
+                        <input type="text" name="phone" placeholder="手机号（不强制校验）" class="layui-input">
+                    </div>
+
+                    <div class="reserve-field">
+                        <label class="small-muted">项目ID</label>
+                        <input type="number" name="project_id" min="0" value="0" class="layui-input">
+                    </div>
+
+                    <div class="reserve-field">
+                        <label class="small-muted">预约日期</label>
+                        <input type="text" id="todate" name="todate" placeholder="选择预约日期" class="layui-input" readonly>
+                    </div>
+
+                    <div class="reserve-field">
+                        <label class="small-muted">预约时间</label>
+                        <input type="text" id="totime" name="totime" placeholder="选择预约时间" class="layui-input" readonly>
+                    </div>
+
+                    <div class="reserve-field">
+                        <label class="small-muted">备注</label>
+                        <input type="text" name="remark" placeholder="可选：填写具体需求或备注" class="layui-input">
+                    </div>
+                </div>
+
+                <div class="reserve-actions">
+                    <button class="layui-btn layui-btn-normal" id="btnSubmit" type="submit" style="width:200px;">提交预约</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+
+</div>
+
+<script src="../../layui/layui.js"></script>
+<script src="../../layui/layui.all.js"></script>
+<script>
+    layui.use(['layer','laydate','form','jquery'], function(){
+        var layer = layui.layer, laydate = layui.laydate, form = layui.form, $ = layui.$;
+
+        // API base，按后端部署调整
+        var API_BASE = '/';
+
+        // 工具
+        function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
+        function apiFetch(path, opts){
+            opts = opts || {};
+            opts.headers = opts.headers || {};
+            if(!(opts.body instanceof FormData)) {
+                opts.headers['Content-Type'] = opts.headers['Content-Type'] || 'application/json;charset=utf-8';
+            }
+            opts.credentials = opts.credentials || 'same-origin';
+            if(opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) {
+                opts.body = JSON.stringify(opts.body);
+            }
+            var url = path.indexOf('http')===0 ? path : (API_BASE + path.replace(/^\//,''));
+            return fetch(url, opts)
+                .then(function(resp){
+                    if(!resp.ok) throw new Error('Network response not ok: ' + resp.status);
+                    return resp.json().catch(function(){ return null; });
+                });
+        }
+
+        var state = { q:'', startDate:'', endDate:'', payMode:'', status:'', page:1, limit:8, view:'card', filtered:[], total:0 };
+
+        // 初始化日期/时间选择器
+        laydate.render({ elem: '#dateRange', range: ' 到 ', trigger: 'click' });
+        laydate.render({ elem: '#todate', type: 'date', min: 0, trigger: 'click' });
+        laydate.render({ elem: '#totime', type: 'time', trigger: 'click' });
+
+        // 加载列表（带筛选）
+        function loadList(page, size, q, payMode, status, startDate, endDate){
+            page = page || 1; size = size || 100;
+            var params = '?page='+encodeURIComponent(page) + '&size=' + encodeURIComponent(size);
+            if(q) params += '&q=' + encodeURIComponent(q);
+            if(payMode) params += '&paymode=' + encodeURIComponent(payMode);
+            if(status !== undefined && status !== '') params += '&paystatus=' + encodeURIComponent(status);
+            if(startDate) params += '&start=' + encodeURIComponent(startDate);
+            if(endDate) params += '&end=' + encodeURIComponent(endDate);
+            return apiFetch('/reservation/list' + params, { method: 'GET' })
+                .then(function(json){
+                    var payload = json && (json.data || json) || {};
+                    var total = payload.total || payload.totalCount || 0;
+                    var records = payload.records || payload || [];
+                    if(!Array.isArray(records)) records = [];
+                    state.filtered = records;
+                    state.total = total;
+                    $('#resultCount').text(total);
+                    $('#totalCount').text(total);
+                    renderCards(true);
+                    renderTable();
+                    return payload;
+                })
+                .catch(function(err){
+                    console.warn('加载列表失败', err);
+                    layer.msg('加载失败');
+                });
+        }
+
+        // 与详情同等的套餐名称解析（尽量复用 openDetail 的策略）
+        function getPackageNameFromRecord(rec, project){
+            if(!rec) return '';
+            project = project || rec.project || rec.projectObj || rec.projectItem || rec.projectInfo || rec.projectData || null;
+
+            // 优先简单字段
+            var first = rec.projectName || rec.project_name || rec.packageName || rec.package_name || rec.title || rec.name || rec.product_name || rec.goodsName;
+            if(first && typeof first === 'string' && first.trim()) return first.trim();
+
+            // project 可能为字符串或对象
+            if(typeof rec.project === 'string' && rec.project.trim()) return rec.project.trim();
+            if(project && typeof project === 'string' && project.trim()) return project.trim();
+
+            // project 对象尝试常见字段
+            if(project && typeof project === 'object'){
+                var n = project.name || project.title || project.projectName || project.project_name || project.getName && (typeof project.getName === 'function' ? project.getName() : undefined);
+                if(n && typeof n === 'string' && n.trim()) return n.trim();
+                // 深层尝试
+                if(project.data && typeof project.data === 'object'){
+                    var dn = project.data.name || project.data.title;
+                    if(dn && typeof dn === 'string' && dn.trim()) return dn.trim();
+                }
+                if(project.attributes && typeof project.attributes === 'object'){
+                    var an = project.attributes.name || project.attributes.title;
+                    if(an && typeof an === 'string' && an.trim()) return an.trim();
+                }
+            }
+
+            // 有时记录内包含 payload/project 的不同命名
+            var alt = rec.projectObj || rec.project_item || rec.projectInfo || rec.payload || rec.data;
+            if(alt){
+                if(typeof alt === 'string' && alt.trim()) return alt.trim();
+                if(typeof alt === 'object'){
+                    var mn = alt.name || alt.title || alt.projectName || alt.packageName;
+                    if(mn && typeof mn === 'string' && mn.trim()) return mn.trim();
+                    if(alt.data && typeof alt.data === 'object'){
+                        var md = alt.data.name || alt.data.title;
+                        if(md && typeof md === 'string' && md.trim()) return md.trim();
+                    }
+                }
+            }
+
+            // 最后尝试 rec.project（不同大小写）和 rec.title/rec.name
+            var fallback = rec.title || rec.name || rec.planName || rec.product_name || rec.package;
+            if(fallback && typeof fallback === 'string' && fallback.trim()) return fallback.trim();
+
+            // 未找到则返回空字符串（调用端决定回退显示）
+            return '';
+        }
+
+        // renderCards：列表处使用与详情相同的解析逻辑，只有当解析不到名称时才回退到显示“记录ID ...”
+        function renderCards(reset){
+            var list = state.filtered || [];
+            if(reset) state.page = 1;
+            var end = state.page * state.limit;
+            var slice = list.slice(0, end);
+            var wrap = document.getElementById('cardList');
+            wrap.innerHTML = '';
+            if(slice.length === 0){
+                wrap.innerHTML = '<div class="empty" style="margin-top:12px;">暂无记录</div>';
+                document.getElementById('loadMore').style.display = 'none';
+                return;
+            }
+            slice.forEach(function(item){
+                var projectCandidate = item.project || item.projectObj || item.projectInfo || item.project_item || item.projectItem || null;
+                var packageName = getPackageNameFromRecord(item, projectCandidate) || (item.title || item.name || '');
+                var displayTitle = packageName && packageName.trim() ? packageName : ('记录ID ' + (item.id||''));
+
+                var payLabel = (item.payMode || item.paymode || (item.paystatus==1 ? 'online' : 'card')) === 'card'? '实卡转入' : '在线支付';
+                var statusLabel = (item.paystatus===1)? '<span style="color:green">已支付</span>' : '<span style="color:#ff9900">未支付</span>';
+                var client = item.clientName || item.client || item.client_name || item.clientTel || item.client_tel || '-';
+                var tel = item.clientTel || item.client_tel || item.phone || item.mobile || '';
+
+                var card = document.createElement('div');
+                card.className = 'card-item';
+                card.setAttribute('data-id', item.id);
+                card.innerHTML = `
+          <div class="card-left" style="flex:1;">
+            <div class="card-title">${escapeHtml(displayTitle)}</div>
+            <div class="card-meta">${escapeHtml(client)} <span class="small-muted" style="margin-left:6px;">${escapeHtml(tel)}</span></div>
+            <div class="card-meta">${escapeHtml(item.date || item.createdAt || item.time || '')} · ${payLabel} · ${statusLabel}</div>
+            <div class="card-foot" style="margin-top:6px;">
+              <span class="badge" style="background:#eef2ff;color:#3b82f6;border-radius:999px;padding:4px 8px;font-size:12px;">记录ID ${item.id}</span>
+            </div>
+          </div>
+        `;
+                const btns = document.createElement('div');
+                btns.style.display = 'flex';
+                btns.style.alignItems = 'center';
+                btns.style.gap = '8px';
+                btns.style.marginLeft = '8px';
+
+                var viewBtn = document.createElement('button');
+                viewBtn.className = 'layui-btn layui-btn-xs';
+                viewBtn.textContent = '查看';
+                viewBtn.setAttribute('data-id', item.id);
+                viewBtn.addEventListener('click', function(){ openDetail(item.id); });
+
+                var reserveBtn = document.createElement('button');
+                reserveBtn.className = 'btn btn-reserve layui-btn-xs';
+                reserveBtn.textContent = '预约';
+                reserveBtn.setAttribute('data-id', item.id);
+                reserveBtn.addEventListener('click', function(){ openReserveForRecord(item); });
+
+                var delBtn = document.createElement('button');
+                delBtn.className = 'layui-btn layui-btn-danger layui-btn-xs';
+                delBtn.textContent = '删除';
+                delBtn.setAttribute('data-id', item.id);
+                delBtn.addEventListener('click', function(){ deletePayinfo(item.id); });
+
+                btns.appendChild(viewBtn);
+                btns.appendChild(reserveBtn);
+                btns.appendChild(delBtn);
+                card.appendChild(btns);
+                wrap.appendChild(card);
+            });
+            if(end < list.length) document.getElementById('loadMore').style.display = 'block';
+            else document.getElementById('loadMore').style.display = 'none';
+        }
+
+        // renderTable：同样使用相同解析逻辑
+        function renderTable(){
+            var list = state.filtered || [];
+            var end = state.page * 10;
+            var slice = list.slice(0, end);
+            var tbody = document.getElementById('tbodyTable');
+            tbody.innerHTML = '';
+            slice.forEach(function(r){
+                var projectCandidate = r.project || r.projectObj || r.projectInfo || r.project_item || null;
+                var packageName = getPackageNameFromRecord(r, projectCandidate) || (r.title || r.name || '');
+                var displayTitle = packageName && packageName.trim() ? packageName : ('记录ID ' + (r.id||''));
+
+                var payLabel = (r.payMode || r.paymode || (r.paystatus==1 ? 'online' : 'card'))==='card'? '实卡转入' : '在线支付';
+                var clientName = r.clientName || r.client || r.client_name || '';
+                var clientTel = r.clientTel || r.client_tel || r.phone || r.mobile || '';
+
+                var tr = document.createElement('tr');
+                tr.innerHTML = `
+          <td><input type="checkbox" class="chk" data-id="${r.id}"></td>
+          <td>${escapeHtml(r.date || r.createdAt || '')}</td>
+          <td>${escapeHtml(clientName)}<div class="small-muted" style="font-size:12px">${escapeHtml(clientTel)}</div></td>
+          <td>${escapeHtml(displayTitle)}</td>
+          <td>${r.qty || 1}</td>
+          <td>${(Number(r.price||0)).toFixed(2)}</td>
+          <td>${(Number(r.total||r.price||0)).toFixed(2)}</td>
+          <td>${payLabel}</td>
+          <td>
+            <button class="layui-btn layui-btn-xs viewBtn" data-id="${r.id}">查看</button>
+            <button class="layui-btn layui-btn-danger layui-btn-xs delBtn" data-id="${r.id}">删除</button>
+          </td>
+        `;
+                tbody.appendChild(tr);
+            });
+            $(document).off('click', '.viewBtn').on('click', '.viewBtn', function(){ openDetail($(this).data('id')); });
+            $(document).off('click', '.delBtn').on('click', '.delBtn', function(){ deletePayinfo($(this).data('id')); });
+        }
+
+        // --------------- 新版详情与检查项渲染（兼容后端增强 /reservation/detail 返回结构） -------------------
+
+        function openDetail(id){
+            layer.load(2);
+            apiFetch('/reservation/detail?id=' + encodeURIComponent(id), { method:'GET' })
+                .then(function(json){
+                    layer.closeAll('loading');
+                    var payload = json && (json.data || json) || null;
+                    if(!payload){
+                        layer.msg('未找到记录');
+                        return;
+                    }
+
+                    // 支持 payload.payinfo 或 payload 本身为 payinfo
+                    var rec = payload.payinfo ? payload.payinfo : payload;
+                    if(!rec && Array.isArray(payload) && payload.length>0) rec = payload[0];
+                    if(!rec){
+                        layer.msg('未找到记录数据');
+                        return;
+                    }
+
+                    var client = payload.client || payload.clientObj || null;
+                    var card = payload.card || null;
+                    var project = payload.project || null;
+                    var projectItems = payload.projectItems || null;
+
+                    var payModeLabel = (rec.payMode || rec.paymode || (rec.paystatus==1 ? 'online' : 'card')) === 'card' ? '实卡转入' : '在线支付';
+                    var statusLabel = rec.paystatus === 1 ? '<span style="color:#67c23a">已支付</span>' : (rec.paystatus === 2 ? '<span style="color:#999">已退款</span>' : '<span style="color:#909399">未支付</span>');
+                    var price = (Number(rec.total || rec.price || 0)).toFixed(2);
+
+                    var html = '<div style="position:relative;padding:18px;max-width:900px;box-sizing:border-box;">';
+
+                    html += '<div style="display:flex;gap:18px;flex-wrap:wrap;">';
+                    html += '<div style="flex:1;min-width:280px;">';
+                    var title = rec.projectName || rec.project || (project && (project.name || project.getName && project.getName())) || '未命名套餐';
+                    html += '<h3 style="margin:0 0 8px 0;color:#333;">' + escapeHtml(title) + '</h3>';
+                    html += '<div style="margin-bottom:10px;color:#666;">' +
+                        '<div>价格：<span style="color:#f56c6c;font-weight:600">¥' + price + '</span></div>' +
+                        '<div>数量：' + (rec.qty || 1) + '</div>' +
+                        '<div>支付方式：' + payModeLabel + '</div>' +
+                        '<div>状态：' + statusLabel + '</div>' +
+                        '</div>';
+
+                    var pic = (project && (project.pic || project.image)) || rec.pic || rec.image || null;
+                    if(pic){
+                        html += '<div style="margin-bottom:10px;">封面：<br/><img src="' + escapeHtml(pic) + '" style="max-width:220px;max-height:140px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="layer.photos({photos:{data:[{src:\'' + escapeHtml(pic) + '\'}]},anim:5})"></div>';
+                    }
+                    if(rec.remark){
+                        html += '<div style="color:#333;margin-bottom:10px;"><strong>备注：</strong><div style="color:#444;line-height:1.6;margin-top:6px;">' + escapeHtml(rec.remark) + '</div></div>';
+                    }
+                    if(client){
+                        var cname = client.nike || client.name || client.nick || client.nickname || '';
+                        var tel = client.tel || client.tel2 || client.phone || client.mobile || '';
+                        html += '<div style="color:#666;margin-bottom:8px;">客户：' + escapeHtml(cname || '') + ' <span class="small-muted">' + escapeHtml(tel || '') + '</span></div>';
+                    }
+
+                    html += '</div>';
+
+                    html += '<div style="width:240px;flex-shrink:0;">';
+                    html += '<div style="background:#fff;border:1px solid #eef2f8;padding:12px;border-radius:6px;">';
+                    html += '<div style="margin-bottom:8px;color:#666;">实付金额</div>';
+                    html += '<div style="font-size:20px;color:#f56c6c;font-weight:700;margin-bottom:12px;">¥' + price + '</div>';
+
+                    var refundBtnText = (rec.payMode || rec.paymode || '') === 'online' ? '在线支付 - 请用支付渠道退款' : '退回到卡（实卡转入）';
+                    html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+                    html += '<button id="btnRefundNow" class="layui-btn layui-btn-warm" style="width:100%">' + escapeHtml(refundBtnText) + '</button>';
+                    // 保留右侧区域内不显示关闭按钮（顶部已有）
+                    html += '</div>';
+
+                    html += '</div></div>';
+                    html += '</div>';
+
+                    html += '<div style="margin-top:16px;">';
+                    html += '<h4 style="margin:0 0 8px 0;border-bottom:2px solid #409eff;padding-bottom:6px;display:inline-block;">包含的检查项</h4>';
+                    html += '<div id="detailItemsArea" style="min-height:120px;padding-top:12px;color:#999">加载中...</div>';
+                    html += '</div>';
+
+                    html += '</div>';
+
+                    var layerIndex = layer.open({
+                        type: 1,
+                        title: '购买详情（记录ID ' + (rec.id || '') + '）',
+                        area: ['90%', '74%'],
+                        content: html,
+                        success: function(dom){
+                            // 顶部关闭按钮
+                            $(dom).find('#btnCloseTop').on('click', function(){ layer.close(layerIndex); });
+
+                            $(dom).find('#btnRefundNow').on('click', function(){
+                                var $btn = $(this);
+                                if($btn.data('loading')) return;
+                                $btn.data('loading', true);
+
+                                var payMode = (rec.payMode || rec.paymode || '');
+                                if(!payMode){
+                                    payMode = card ? 'card' : 'online';
+                                }
+                                if(payMode === 'online'){
+                                    layer.alert('该订单为在线支付，如需退款请在支付渠道/平台发起退款或联系管理员处理。', {title:'无法直接退回'});
+                                    $btn.data('loading', false);
+                                    return;
+                                }
+
+                                layer.confirm('确认将 ¥' + price + ' 退回至该实卡账户吗？（记录ID ' + rec.id + '）', function(confirmIdx){
+                                    layer.close(confirmIdx);
+                                    layer.load(2);
+                                    apiFetch('/reservation/refund', {
+                                        method: 'POST',
+                                        body: { id: rec.id, amount: Number(price) }
+                                    })
+                                        .then(function(res){
+                                            layer.closeAll('loading');
+                                            $btn.data('loading', false);
+                                            if(res && (res.code === 0 || res.success === true)){
+                                                layer.msg('退款成功', {icon:1});
+                                                layer.close(layerIndex);
+                                                loadList(1, 100, state.q, state.payMode, state.status, state.startDate, state.endDate);
+                                            } else {
+                                                var msg = (res && (res.msg || res.message)) || '退款失败';
+                                                layer.alert('退款失败：' + msg);
+                                            }
+                                        })
+                                        .catch(function(err){
+                                            console.error('refund error', err);
+                                            layer.closeAll('loading');
+                                            $btn.data('loading', false);
+                                            layer.alert('退款请求失败，请稍后重试或联系管理员');
+                                        });
+                                });
+
+                            });
+
+                            // 渲染检查项：优先使用 projectItems.selected，如果没有则发起回退请求
+                            if(projectItems && (Array.isArray(projectItems.selected) && projectItems.selected.length > 0)){
+                                renderDetailItemsList(projectItems.selected, $(dom).find('#detailItemsArea'));
+                            } else if(payload && Array.isArray(payload.selected)){
+                                renderDetailItemsList(payload.selected, $(dom).find('#detailItemsArea'));
+                            } else {
+                                fetchDetailItemsForRecord(rec, dom, project);
+                            }
+                        }
+                    });
+
+                })
+                .catch(function(err){
+                    layer.closeAll('loading');
+                    console.warn('获取购买详情失败', err);
+                    layer.msg('获取详情失败');
+                });
+        }
+
+        // 辅助：请求并渲染包含检查项（多路径尝试，兼容多种返回格式）
+        function fetchDetailItemsForRecord(rec, dom, project){
+            var target = $(dom).find('#detailItemsArea');
+            target.html('<div style="text-align:center;color:#999;padding:30px">加载中...</div>');
+
+            var tryPaths = [
+                '/reservation/' + encodeURIComponent(rec.id) + '/items',
+                '/reservation/items?id=' + encodeURIComponent(rec.id)
+            ];
+            var pid = (rec.projectId || (project && (project.id || project.getId && project.getId())) || '');
+            if(pid) {
+                tryPaths.push('/project/' + encodeURIComponent(pid) + '/items');
+                tryPaths.push('/project/items?projectId=' + encodeURIComponent(pid));
+            }
+            tryPaths.push('/project/' + encodeURIComponent(rec.projectId || '') + '/items');
+
+            var tried = 0;
+            function tryNext(){
+                if(tried >= tryPaths.length){
+                    target.html('<div style="text-align:center;color:#999;padding:30px">暂无检查项数据</div>');
+                    return;
+                }
+                var p = tryPaths[tried++];
+                apiFetch(p, { method:'GET' })
+                    .then(function(json){
+                        var body = json && (json.data || json) || null;
+                        if(Array.isArray(body) && body.length===1 && typeof body[0] === 'object') body = body[0];
+                        var items = [];
+                        if(!body){
+                            if(json && json.selected && Array.isArray(json.selected)) items = json.selected;
+                            else { tryNext(); return; }
+                        } else if(Array.isArray(body)){
+                            items = body;
+                        } else if(Array.isArray(body.records)){
+                            items = body.records;
+                        } else if(Array.isArray(body.selected)){
+                            items = body.selected;
+                        } else if(Array.isArray(body.items)){
+                            items = body.items;
+                        } else {
+                            tryNext(); return;
+                        }
+
+                        if(items && items.length > 0){
+                            renderDetailItemsList(items, target);
+                        } else {
+                            tryNext();
+                        }
+                    })
+                    .catch(function(err){
+                        console.warn('try path failed', p, err);
+                        tryNext();
+                    });
+            }
+            tryNext();
+        }
+
+        function renderDetailItemsList(items, $target){
+            if(!items || items.length === 0){
+                $target.html('<div style="text-align:center;color:#999;padding:30px">暂无检查项</div>');
+                return;
+            }
+            var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;">';
+            items.forEach(function(it){
+                var name = it.name || it.title || it.itemName || it.item_name || '';
+                var pic = it.pic || it.image || it.avatar || it.thumb || it.cover || '';
+                var desc = it.info || it.description || it.desc || it.remark || '';
+                var point = (typeof it.point !== 'undefined') ? it.point : ((typeof it.score !== 'undefined') ? it.score : '');
+                var thumb = pic ? '<img src="' + escapeHtml(pic) + '" style="width:60px;height:60px;object-fit:cover;border-radius:6px;cursor:pointer" onclick="layer.photos({photos:{data:[{src:\'' + escapeHtml(pic) + '\'}]},anim:5})">' :
+                    '<div style="width:60px;height:60px;background:#f5f5f5;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#999">无图</div>';
+
+                html += '<div style="background:#fff;border:1px solid #eef2f8;padding:12px;border-radius:8px;display:flex;gap:12px;align-items:flex-start;">' +
+                    thumb +
+                    '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-weight:600;color:#333;margin-bottom:6px;">' + escapeHtml(name || '未命名') + '</div>' +
+                    '<div style="color:#666;font-size:13px;line-height:1.4;margin-bottom:8px;">' + escapeHtml(desc || '暂无描述') + '</div>' +
+                    (point!=='' ? ('<div style="color:#1890ff;font-weight:600;">' + escapeHtml(point) + ' 分</div>') : '') +
+                    '</div></div>';
+            });
+            html += '</div>';
+            $target.html(html);
+        }
+
+
+
+        function deletePayinfo(id){
+            layer.confirm('确认删除该记录吗？', function(idx){
+                apiFetch('/reservation/delete?id=' + encodeURIComponent(id), { method: 'POST' })
+                    .then(function(json){
+                        layer.msg('删除成功');
+                        loadList(1, 100, state.q, state.payMode, state.status, state.startDate, state.endDate);
+                    })
+                    .catch(function(err){
+                        console.warn(err);
+                        layer.msg('删除失败或接口未实现');
+                    });
+                layer.close(idx);
+            });
+        }
+
+        function openReserveForRecord(record){
+            $('#clientForm [name="client_name"]').val(record.clientName || record.client || '');
+            $('#clientForm [name="phone"]').val(record.clientTel || record.client_tel || '');
+            $('#clientForm [name="project_id"]').val(record.projectId || 0);
+            $('#clientForm [name="payinfo_id"]').val(record.id || 0);
+            var prevRemark = record.remark || '';
+            var remark = '预约来源：记录ID ' + record.id;
+            $('#clientForm [name="remark"]').val(prevRemark ? prevRemark + '；' + remark : remark);
+            $('#reservePanel').show();
+            var today = new Date();
+            $('#todate').val(today.getFullYear() + '-' + ('0'+(today.getMonth()+1)).slice(-2) + '-' + ('0'+today.getDate()).slice(-2));
+            $('#totime').val('');
+            $('#todate').focus();
+        }
+
+        function submitReservation(data){
+            if(data.payinfo_id && Number(data.payinfo_id) > 0){
+                var payload = {
+                    payinfoId: Number(data.payinfo_id),
+                    todate: data.todate,
+                    totime: data.totime || '',
+                    status: 0
+                };
+                return apiFetch('/reservation/createFromPay', { method: 'POST', body: payload })
+                    .then(function(json){
+                        layer.msg('预约提交成功');
+                        $('#reservePanel').hide();
+                        $('#clientForm')[0].reset();
+                        return json;
+                    })
+                    .catch(function(err){ console.warn(err); layer.msg('预约提交失败'); });
+            } else {
+                var payload2 = {
+                    clientId: data.clientId || null,
+                    projectId: Number(data.project_id || 0),
+                    todate: data.todate,
+                    totime: data.totime || '',
+                    status: 0
+                };
+                return apiFetch('/reservation/create', { method: 'POST', body: payload2 })
+                    .then(function(json){
+                        layer.msg('预约提交成功');
+                        $('#reservePanel').hide();
+                        $('#clientForm')[0].reset();
+                        return json;
+                    })
+                    .catch(function(err){ console.warn(err); layer.msg('预约提交失败'); });
+            }
+        }
+
+        // 初始化交互
+        function init(){
+            loadList(1, 100, '');
+
+            $('#btnToggleFilters').on('click', function(){ $('#filters').toggleClass('open'); });
+            $('#btnSwitchView').on('click', function(){
+                if($('.table-wrap').is(':visible')){
+                    $('.table-wrap').hide();
+                    $('.list-cards').show();
+                    $('#loadMore').show();
+                } else {
+                    $('.table-wrap').show();
+                    $('.list-cards').hide();
+                    $('#loadMore').hide();
+                }
+            });
+
+            $('#btnSearch').on('click', function(){
+                state.q = $('#q').val();
+                state.payMode = $('#filterPay').val();
+                state.status = $('#filterStatus').val();
+                var dr = $('#dateRange').val().split(' 到 ');
+                state.startDate = dr[0] || '';
+                state.endDate = dr[1] || '';
+                loadList(1, 100, state.q, state.payMode, state.status, state.startDate, state.endDate);
+            });
+
+            $('#btnReset').on('click', function(){
+                $('#q').val(''); $('#dateRange').val(''); $('#filterPay').val(''); $('#filterStatus').val('');
+                state = { q:'', startDate:'', endDate:'', payMode:'', status:'', page:1, limit:8, view:'card', filtered:[], total:0 };
+                loadList(1, 100, '');
+            });
+
+            $('#loadMore').on('click', function(){ state.page++; renderCards(false); });
+
+            $('#clientForm').on('submit', function(e){
+                e.preventDefault();
+                var fd = new FormData(e.target);
+                var vals = Object.fromEntries(fd.entries());
+                if(!vals.todate || !vals.todate.trim()){ layer.msg('请选择预约日期'); return; }
+                submitReservation(vals);
+            });
+
+            $('#closeReserve').on('click', function(){ $('#reservePanel').hide(); });
+
+            var $backBtn = $('<button class="layui-btn layui-btn-primary" id="btnBack" style="margin-right:8px;">返回</button>');
+            $('.head').prepend($backBtn);
+            $('#btnBack').on('click', function(){
+                try{ if(window.history && window.history.length > 1) window.history.back(); else window.location.href = '/'; } catch(e){ window.location.href = '/'; }
+            });
+            (function(){
+                var t;
+                $('#btnBack').on('mousedown touchstart', function(){ t = setTimeout(function(){ localStorage.removeItem('userInfo'); layer.msg('本地用户信息已清除'); }, 800); });
+                $('#btnBack').on('mouseup mouseleave touchend', function(){ clearTimeout(t); });
+            })();
+        }
+
+        init();
+    });
+</script>
+</body>
+</html>

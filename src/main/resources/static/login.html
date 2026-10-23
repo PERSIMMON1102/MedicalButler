@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0" />
+    <title>登录 - 医疗健康管理系统</title>
+
+    <script type="text/javascript" src="/layui/layui.js"></script>
+    <script type="text/javascript" src="/js/funs.js"></script>
+
+    <style>
+        :root{
+            --card-bg: rgba(255,255,255,0.96);
+            --muted: #6c757d;
+            --primary: linear-gradient(90deg,#3b8dff,#1c6fe8);
+            --accent: #1c6fe8;
+            --success: #28a745;
+            --danger: #dc3545;
+            --radius: 12px;
+        }
+
+        /* 页面背景 */
+        html,body{
+            height:100%;
+            margin:0;
+            font-family: "Helvetica Neue", "PingFang SC", "Microsoft Yahei", Arial, sans-serif;
+            -webkit-font-smoothing:antialiased;
+            -moz-osx-font-smoothing:grayscale;
+            background-color:#f0f2f5;
+        }
+
+        /* 背景图片区域 */
+        .bg {
+            position: fixed;
+            inset: 0;
+            background-image: url('pic/bck.jpeg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: saturate(0.9) brightness(0.95);
+            z-index: 0;
+        }
+        /* 遮罩，提升卡片可读性 */
+        .bg::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(10,25,47,0.25), rgba(255,255,255,0.06));
+        }
+
+        /* 容器，居中 */
+        .wrap {
+            min-height:100%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* 卡片 */
+        .card {
+            width:100%;
+            max-width:420px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: 0 12px 30px rgba(20,30,50,0.12);
+            padding: 30px;
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(30,50,80,0.04);
+            transition: transform .18s ease, box-shadow .18s ease;
+        }
+        .card:hover { transform: translateY(-6px); }
+
+        .brand {
+            display:flex;
+            align-items:center;
+            gap:14px;
+            margin-bottom: 16px;
+        }
+        .logo {
+            width:56px;
+            height:56px;
+            border-radius:10px;
+            background: var(--primary);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#fff;
+            font-weight:700;
+            font-size:20px;
+            box-shadow: 0 8px 24px rgba(30,110,240,0.18);
+        }
+        .brand-title {
+            margin:0;
+            font-size:18px;
+            color:#122033;
+            font-weight:700;
+            line-height:1;
+        }
+        .brand-sub {
+            margin:2px 0 0 0;
+            font-size:13px;
+            color:var(--muted);
+        }
+
+        form { margin-top: 8px; }
+        .form-group { margin-bottom:14px; }
+        label {
+            display:block;
+            font-size:13px;
+            color:#3a4a5a;
+            margin-bottom:6px;
+            font-weight:600;
+        }
+        input[type="text"], input[type="password"] {
+            width:100%;
+            height:44px;
+            padding:10px 12px;
+            font-size:14px;
+            border-radius:8px;
+            border:1px solid #e6eef8;
+            outline:none;
+            background:#fbfdff;
+            transition: box-shadow .12s, border-color .12s;
+            box-sizing:border-box;
+        }
+        input[type="text"]:focus, input[type="password"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 6px 18px rgba(28,111,232,0.12);
+        }
+
+        .actions {
+            margin-top:6px;
+            display:flex;
+            gap:12px;
+            align-items:center;
+        }
+
+        /* 主按钮 */
+        .btn {
+            flex:1;
+            height:44px;
+            border:none;
+            border-radius:8px;
+            color:#fff;
+            font-weight:600;
+            cursor:pointer;
+            background: linear-gradient(90deg,#3b8dff,#1c6fe8);
+            box-shadow: 0 10px 22px rgba(28,111,232,0.12);
+        }
+        .btn:disabled {
+            opacity:0.6;
+            cursor:not-allowed;
+            box-shadow:none;
+        }
+
+        .helper {
+            margin-top:12px;
+            display:flex;
+            justify-content:space-between;
+            font-size:13px;
+            color:var(--muted);
+        }
+        .helper a { color: var(--accent); text-decoration:none; }
+        .helper a:hover { text-decoration:underline; }
+
+        /* 小屏适配 */
+        @media (max-width:420px){
+            .card { padding:18px; margin: 20px; border-radius:10px; }
+            .brand .logo { width:48px; height:48px; font-size:18px; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+
+<div class="wrap">
+    <div class="card" role="main" aria-labelledby="loginTitle">
+        <div class="brand">
+            <div class="logo" aria-hidden="true">医</div>
+            <div>
+                <h1 id="loginTitle" class="brand-title">医疗健康管理系统</h1>
+                <div class="brand-sub">欢迎回来，请登录以继续</div>
+            </div>
+        </div>
+
+        <form id="loginForm" autocomplete="on" novalidate>
+            <div class="form-group">
+                <label for="phone">手机号</label>
+                <input id="phone" name="phone" type="text" class="form-control" placeholder="请输入手机号" required aria-required="true" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">密码</label>
+                <input id="password" name="pass" type="password" class="form-control" placeholder="请输入密码" required aria-required="true" />
+            </div>
+
+            <div class="form-group actions">
+                <button id="loginBtn" class="btn" type="submit" aria-label="登录">登录</button>
+            </div>
+
+            <div class="helper">
+                <div><a href="password.html">修改密码？</a></div>
+                <div><a href="register.html">注册新账号</a></div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="text/javascript">
+    var $;
+    var layer;
+    layui.use(["jquery","layer"], function(){
+        $ = layui.jquery;
+        layer = layui.layer;
+
+        var $form = $("#loginForm");
+        var $btn = $("#loginBtn");
+        var $phone = $("#phone");
+        var $pass = $("#password");
+
+        // 回车触发表单提交
+        $form.on("submit", function(e){
+            e.preventDefault();
+            submitLogin();
+        });
+
+        // 快速键：回车在输入框中也提交
+        $form.find("input").on("keydown", function(e){
+            if(e.key === "Enter"){
+                e.preventDefault();
+                submitLogin();
+            }
+        });
+
+        // 手机号验证函数
+        function validatePhone(phone) {
+            var reg = /^1[3-9]\d{9}$/;
+            return reg.test(phone);
+        }
+
+        function submitLogin(){
+            if($btn.prop("disabled")) return;
+
+            var phone = $.trim($phone.val());
+            var pass = $.trim($pass.val());
+
+            // 基本校验
+            if(!phone){
+                layer.msg("请输入手机号", {icon:5});
+                $phone.focus();
+                return;
+            }
+
+            // 手机号格式验证
+            if(!validatePhone(phone)){
+                layer.msg("请输入正确的手机号格式", {icon:5});
+                $phone.focus();
+                return;
+            }
+
+            if(!pass){
+                layer.msg("请输入密码", {icon:5});
+                $pass.focus();
+                return;
+            }
+
+            // 按钮进入加载状态，防止重复提交
+            $btn.prop("disabled", true).text("登录中...");
+
+            // 使用正确的参数名和设置 Content-Type
+            $.ajax({
+                url: "/client/login",
+                type: "POST",
+                contentType: "application/json;charset=UTF-8", // 关键：设置 Content-Type
+                data: JSON.stringify({
+                    "tel": phone,  // 改为 tel 而不是 phone
+                    "pass": pass
+                }),
+                success: function(json){
+                    // 恢复按钮状态
+                    $btn.prop("disabled", false).text("登录");
+
+                    if(json && json.code === 200){
+                        // 登录成功
+                        localStorage.setItem('id',json.data.user.id);
+                        layer.msg("登录成功，正在跳转...", {icon:1, time:1500}, function(){
+                            // 根据权限跳转到不同页面
+                            if (json.data && json.data.user && json.data.user.power === 1) {
+                                location.href = "/admin/index.html";
+                            } else {
+                                location.href = "/Client/user.html";
+                            }
+                        });
+                    } else {
+                        // 登录失败
+                        var msg = (json && json.msg) ? json.msg : "登录失败，请检查手机号或密码";
+                        layer.msg(msg, {icon:5});
+                    }
+                },
+                error: function(xhr, status, error){
+                    // 网络错误处理
+                    $btn.prop("disabled", false).text("登录");
+
+                    if(xhr.status === 415) {
+                        layer.msg("请求格式错误，请联系管理员", {icon:5});
+                    } else {
+                        layer.msg("网络错误，请稍后重试", {icon:2});
+                    }
+                    console.error("登录请求失败:", error);
+                }
+            });
+        }
+
+        // 页面加载时将焦点放在手机号输入框
+        $phone.focus();
+    });
+</script>
+</body>
+</html>

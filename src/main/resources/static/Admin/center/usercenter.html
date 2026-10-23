@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>个人中心</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="../layui/css/layui.css" rel="stylesheet">
+    <style>
+        body{ padding:18px; }
+        .leftCard{ width:260px; display:inline-block; vertical-align:top; }
+        .rightForm{ display:inline-block; width:calc(100% - 300px); margin-left:20px; vertical-align:top; }
+        .avatar{ width:120px; height:120px; border-radius:50%; object-fit:cover; border:1px solid #eee; padding:4px; background:#fff; }
+        /* 响应式：窄屏下纵向排列 */
+        @media (max-width: 900px){
+            .leftCard, .rightForm { display:block; width:auto; margin-left:0; }
+            .rightForm { margin-top:16px; }
+            .layui-form-label{ width:100%!important; }
+            .layui-input-block{ margin-left:0!important; }
+        }
+        .meta-row{ margin-top:8px; color:#666; }
+        .avatar-wrap{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+        .small-muted{ font-size:12px; color:#999; }
+    </style>
+</head>
+<body>
+<div class="layui-row">
+    <div class="leftCard layui-card">
+        <div class="layui-card-body" style="text-align:center;">
+            <div class="avatar-wrap">
+                <img id="avatarImg" class="avatar" src="../static/default-avatar.png" alt="头像">
+                <div>
+                    <!-- upload 会渲染到按钮上 -->
+                    <button class="layui-btn layui-btn-sm" id="btnUploadAvatar"><i class="layui-icon">&#xe67c;</i> 上传头像</button>
+                </div>
+                <div>
+                    <h3 id="username" style="margin:0;"></h3>
+                    <div id="role" class="meta-row small-muted"></div>
+                </div>
+                <div style="margin-top:6px;">
+                    <button class="layui-btn layui-btn-danger layui-btn-sm" id="btnToggleStatus">禁用/启用</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="rightForm layui-card">
+        <div class="layui-card-body">
+            <form class="layui-form" lay-filter="profileForm" id="profileForm">
+                <input type="hidden" name="id">
+                <div class="layui-form-item">
+                    <label class="layui-form-label" style="width:120px">用户名</label>
+                    <div class="layui-input-block" style="margin-left:140px;">
+                        <input type="text" name="name" required lay-verify="required" placeholder="用户名" class="layui-input">
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label" style="width:120px">部门</label>
+                    <div class="layui-input-block" style="margin-left:140px;">
+                        <select name="departmentId" id="selectDept">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label" style="width:120px">角色</label>
+                    <div class="layui-input-block" style="margin-left:140px;">
+                        <select name="power" id="selectRole">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label" style="width:120px">邮箱</label>
+                    <div class="layui-input-block" style="margin-left:140px;">
+                        <input type="text" name="email" class="layui-input" placeholder="example@domain.com">
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label" style="width:120px">电话</label>
+                    <div class="layui-input-block" style="margin-left:140px;">
+                        <input type="text" name="phone" class="layui-input" placeholder="手机号或座机">
+                    </div>
+                </div>
+
+                <div style="text-align:right;">
+                    <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submitProfile">保存</button>
+                </div>
+            </form>
+
+            <hr style="margin:18px 0;">
+            <h4>安全设置</h4>
+            <form class="layui-form" lay-filter="pwdForm" id="pwdForm">
+                <div class="layui-form-item">
+                    <label class="layui-form-label" style="width:120px">原密码</label>
+                    <div class="layui-input-block" style="margin-left:140px;">
+                        <input type="password" name="oldpass" lay-verify="required" class="layui-input" placeholder="请输入原密码">
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label" style="width:120px">新密码</label>
+                    <div class="layui-input-block" style="margin-left:140px;">
+                        <input type="password" name="newpass" lay-verify="newpass" class="layui-input" placeholder="至少8位，建议包含数字和字母">
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <button class="layui-btn layui-btn-primary" lay-submit lay-filter="submitPwd">修改密码</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="../layui/layui.js"></script>
+<script>
+    layui.use(['layer','form','upload','jquery'], function(){
+        var layer = layui.layer, form = layui.form, upload = layui.upload, $ = layui.$;
+
+        // API 配置（根据实际后端路径调整）
+        var API = {
+            get: '/api/user/me',
+            update: '/api/user/',        // + id 或 /api/user/{id}
+            upload: '/api/upload',
+            depts: '/api/departments',
+            roles: '/api/roles',
+            pwd: '/api/user/change-password',
+            updateAvatar: '/api/user/avatar', // example: POST { avatar: url }
+            toggleStatus: '/api/user/' // + {id}/status
+        };
+
+        // 简单缓存下拉数据，避免重复请求
+        var cache = { depts: null, roles: null };
+
+        // 扩展表单验证
+        form.verify({
+            // newpass: 必须至少 8 位
+            newpass: function(value){
+                if(value && value.length < 8){
+                    return '新密码至少 8 位';
+                }
+            }
+        });
+
+        // 通用错误处理
+        function ajaxErrorHandler(xhr, status){
+            layer.msg('网络错误：' + (status || '请求失败'));
+        }
+
+        // 加载下拉（若缓存中存在则直接使用）
+        function loadSelects(callback){
+            var doneCount = 0;
+            function checkDone(){ doneCount++; if(doneCount === 2 && typeof callback === 'function') callback(); }
+
+            // 部门
+            if(cache.depts){
+                renderDepts(cache.depts);
+                checkDone();
+            } else {
+                $.ajax({ url: API.depts, method: 'GET', dataType: 'json',
+                    success: function(res){
+                        if(res && res.code === 0){
+                            // 兼容多种 data 结构
+                            var list = Array.isArray(res.data) ? res.data : (Array.isArray(res.records) ? res.records : []);
+                            cache.depts = list;
+                            renderDepts(list);
+                        } else {
+                            $('#selectDept').html('<option value="">加载失败</option>');
+                            layer.msg(res && res.msg ? res.msg : '部门加载失败');
+                        }
+                        checkDone();
+                    }, error: function(xhr, status){ $('#selectDept').html('<option value="">加载错误</option>'); ajaxErrorHandler(xhr, status); checkDone(); }
+                });
+            }
+
+            // 角色
+            if(cache.roles){
+                renderRoles(cache.roles);
+                checkDone();
+            } else {
+                $.ajax({ url: API.roles, method: 'GET', dataType: 'json',
+                    success: function(res){
+                        if(res && res.code === 0){
+                            var list = Array.isArray(res.data) ? res.data : (Array.isArray(res.records) ? res.records : []);
+                            cache.roles = list;
+                            renderRoles(list);
+                        } else {
+                            $('#selectRole').html('<option value="">加载失败</option>');
+                            layer.msg(res && res.msg ? res.msg : '角色加载失败');
+                        }
+                        checkDone();
+                    }, error: function(xhr, status){ $('#selectRole').html('<option value="">加载错误</option>'); ajaxErrorHandler(xhr, status); checkDone(); }
+                });
+            }
+        }
+
+        function renderDepts(list){
+            var html = '<option value="">请选择部门</option>';
+            list.forEach(function(d){
+                html += '<option value="'+ (d.id || d.departmentId || '') +'">'+ (d.name || d.title || '') +'</option>';
+            });
+            $('#selectDept').html(html);
+            form.render('select');
+        }
+
+        function renderRoles(list){
+            var html = '<option value="">请选择角色</option>';
+            list.forEach(function(r){
+                html += '<option value="'+ (r.id || r.roleId || '') +'">'+ (r.name || r.title || '') +'</option>';
+            });
+            $('#selectRole').html(html);
+            form.render('select');
+        }
+
+        // 加载用户信息（与下拉并行）
+        function loadUser(){
+            var loading = layer.load(2);
+            $.ajax({ url: API.get, method: 'GET', dataType: 'json',
+                success: function(res){
+                    layer.close(loading);
+                    if(res && res.code === 0 && res.data){
+                        var d = res.data;
+                        form.val('profileForm', {
+                            id: d.id,
+                            name: d.name || '',
+                            departmentId: d.departmentId || '',
+                            power: d.power || '',
+                            email: d.email || '',
+                            phone: d.phone || ''
+                        });
+                        $('#username').text(d.name || '');
+                        $('#role').text(d.roleName || '');
+                        $('#avatarImg').attr('src', d.avatar || '../static/default-avatar.png');
+                    } else {
+                        layer.msg(res && res.msg ? res.msg : '获取用户信息失败');
+                    }
+                },
+                error: function(xhr, status){ layer.close(loading); ajaxErrorHandler(xhr, status); }
+            });
+        }
+
+        // 初始化：并行加载下拉与用户信息
+        loadSelects(loadUser);
+
+        // 上传头像
+        upload.render({
+            elem: '#btnUploadAvatar',
+            url: API.upload,
+            accept: 'images',
+            size: 2048, // KB
+            before: function(obj){
+                layer.load(2);
+            },
+            done: function(res){
+                layer.closeAll('loading');
+                if(res && res.code === 0){
+                    // 上传成功：取得图片地址（兼容不同后端返回）
+                    var url = res.url || (res.data && (res.data.url || res.data.path)) || '';
+                    if(!url){
+                        layer.msg('上传成功，但未返回文件地址');
+                        return;
+                    }
+                    // 立即回显
+                    $('#avatarImg').attr('src', url);
+                    // 保存到后端（可用单独接口）
+                    $.ajax({
+                        url: API.updateAvatar,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ avatar: url }),
+                        success: function(r){
+                            if(r && r.code === 0){
+                                layer.msg('头像已更新');
+                            } else {
+                                layer.msg(r && r.msg ? r.msg : '头像保存失败');
+                            }
+                        },
+                        error: function(xhr, status){
+                            ajaxErrorHandler(xhr, status);
+                        }
+                    });
+                } else {
+                    layer.msg(res && res.msg ? res.msg : '上传失败');
+                }
+            },
+            error: function(){
+                layer.closeAll('loading');
+                layer.msg('上传出错，请重试');
+            }
+        });
+
+        // 保存个人信息
+        form.on('submit(submitProfile)', function(fd){
+            var data = fd.field;
+            if(!data.name || data.name.trim() === ''){
+                layer.msg('用户名不能为空');
+                return false;
+            }
+            var id = data.id;
+            if(!id){
+                layer.msg('用户ID缺失，无法保存');
+                return false;
+            }
+            var loading = layer.load(2);
+            $.ajax({
+                url: API.update + id,
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    name: data.name,
+                    departmentId: data.departmentId || null,
+                    power: data.power || null,
+                    email: data.email || '',
+                    phone: data.phone || ''
+                }),
+                success: function(res){
+                    layer.close(loading);
+                    if(res && res.code === 0){
+                        layer.msg('保存成功');
+                        // 重新加载用户信息（确保头像/role 等同步）
+                        loadUser();
+                    } else {
+                        layer.msg(res && res.msg ? res.msg : '保存失败');
+                    }
+                },
+                error: function(xhr, status){
+                    layer.close(loading);
+                    ajaxErrorHandler(xhr, status);
+                }
+            });
+            return false;
+        });
+
+        // 修改密码
+        form.on('submit(submitPwd)', function(fd){
+            var d = fd.field;
+            if(!d.oldpass || !d.newpass){
+                layer.msg('请完整填写密码字段');
+                return false;
+            }
+            if(d.newpass.length < 8){
+                layer.msg('新密码至少 8 位');
+                return false;
+            }
+            var loading = layer.load(2);
+            $.ajax({
+                url: API.pwd,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ old_password: d.oldpass, new_password: d.newpass }),
+                success: function(res){
+                    layer.close(loading);
+                    if(res && res.code === 0){
+                        layer.msg('修改成功，请重新登录');
+                        // TODO: 这里可以触发退出登录跳转
+                    } else {
+                        layer.msg(res && res.msg ? res.msg : '修改失败');
+                    }
+                },
+                error: function(xhr, status){
+                    layer.close(loading);
+                    ajaxErrorHandler(xhr, status);
+                }
+            });
+            return false;
+        });
+
+        // 切换启用/禁用（示例：需要后端支持 /api/user/{id}/status 或类似接口）
+        $('#btnToggleStatus').on('click', function(){
+            var loading = layer.load(2);
+            // 先获取当前用户信息（或者从页面隐藏域读取）
+            $.ajax({
+                url: API.get,
+                method: 'GET',
+                dataType: 'json',
+                success: function(res){
+                    layer.close(loading);
+                    if(res && res.code === 0 && res.data){
+                        var d = res.data;
+                        var to = (d.status === 1 || d.status === '1') ? 0 : 1;
+                        layer.confirm((to === 1 ? '确认启用该账户？' : '确认禁用该账户？'), function(idx){
+                            layer.close(idx);
+                            var l2 = layer.load(2);
+                            // 假设后端支持 POST /api/user/{id}/status { status: 0/1 }
+                            $.ajax({
+                                url: API.toggleStatus + d.id + '/status',
+                                method: 'POST',
+                                contentType: 'application/json',
+                                data: JSON.stringify({ status: to }),
+                                success: function(r){
+                                    layer.close(l2);
+                                    if(r && r.code === 0){
+                                        layer.msg('操作成功');
+                                        loadUser();
+                                    } else {
+                                        layer.msg(r && r.msg ? r.msg : '操作失败');
+                                    }
+                                },
+                                error: function(xhr, status){
+                                    layer.close(l2);
+                                    ajaxErrorHandler(xhr, status);
+                                }
+                            });
+                        });
+                    } else {
+                        layer.msg(res && res.msg ? res.msg : '获取用户失败');
+                    }
+                },
+                error: function(xhr, status){ layer.close(loading); ajaxErrorHandler(xhr, status); }
+            });
+        });
+
+        // 可选：当某些后端返回字段不一致时，请根据后端实际字段调整 mapping 逻辑
+        // 可选：增加“退出登录/刷新用户信息”等按钮并绑定实际逻辑
+
+    });
+</script>
+</body>
+</html>

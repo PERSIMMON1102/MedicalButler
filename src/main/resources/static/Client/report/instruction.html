@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>健康指导建议（移动 · layui）</title>
+
+    <!-- 根据你项目路径调整 layui 引用 -->
+    <link rel="stylesheet" href="../../layui/css/layui.css">
+    <script src="../../layui/layui.js"></script>
+
+    <style>
+        :root{
+            --bg:#f6f9fc; --card:#fff; --muted:#6b7280; --primary:#1e88e5; --accent:#f59e0b; --success:#16a34a;
+            --radius:12px; --gap:12px;
+        }
+        *{box-sizing:border-box}
+        body{
+            margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",Arial;
+            -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100%;
+            background:linear-gradient(180deg,var(--bg),#fff); color:#0f172a; padding-bottom:18px;
+        }
+
+        /* 顶栏 */
+        .top{
+            position:sticky; top:0; z-index:60; padding:12px 14px; display:flex; align-items:center; gap:10px;
+            background:linear-gradient(180deg,rgba(255,255,255,0.97),rgba(255,255,255,0.97)); border-bottom:1px solid rgba(15,23,42,0.04);
+        }
+        .title{font-weight:800; font-size:16px}
+        .subtitle{font-size:12px;color:var(--muted)}
+        .searchWrap{margin-left:auto; display:flex; gap:8px; align-items:center; width:56%}
+        .searchBox{flex:1; display:flex; align-items:center; gap:8px; background:#fff; border-radius:999px; padding:8px 10px; box-shadow:0 6px 18px rgba(2,6,23,0.04)}
+        .searchBox input{border:0; outline:0; width:100%; font-size:14px; background:transparent}
+
+        /* 分类 */
+        .cats{padding:10px 12px; display:flex; gap:8px; overflow:auto; align-items:center}
+        .catBtn{padding:8px 12px; border-radius:999px; background:#fff; color:var(--muted); font-weight:700; box-shadow:0 6px 18px rgba(2,6,23,0.04); cursor:pointer}
+        .catBtn.active{background:var(--primary); color:#fff}
+
+        /* 列表 */
+        .list{padding:8px 12px; display:flex; flex-direction:column; gap:10px}
+        .card{
+            background:var(--card); border-radius:12px; padding:12px; display:flex; gap:10px; align-items:flex-start; box-shadow:0 10px 26px rgba(2,6,23,0.06);
+        }
+        .cardLeft{flex:1; min-width:0}
+        .tag{display:inline-block;padding:6px 8px;border-radius:8px;font-weight:700;font-size:12px;color:#fff}
+        .tag.diet{background:#fb923c}
+        .tag.sport{background:#60a5fa}
+        .tag.psych{background:#9f7aea}
+        .tag.medic{background:#34d399}
+        .tag.other{background:#94a3b8}
+
+        .headline{font-weight:800;font-size:15px;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .excerpt{font-size:13px;color:var(--muted);line-height:1.45;max-height:2.9em;overflow:hidden}
+        .metaRow{margin-top:8px;display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px}
+        .ops{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+
+        .opBtn{background:transparent;border:1px solid rgba(15,23,42,0.06);padding:8px 10px;border-radius:10px;font-size:13px;cursor:pointer}
+
+        .empty{padding:36px;text-align:center;color:var(--muted)}
+
+        /* 弹层样式覆盖 */
+        .layui-layer-content.modal-body{ padding:12px 14px; border-top-left-radius:14px; border-top-right-radius:14px; overflow:auto; max-height:86vh }
+        .modal-handle{width:44px;height:5px;background:#e6e6e6;border-radius:999px;margin:8px auto}
+
+        .detail-section{margin-top:8px}
+        .detail-section h4{margin:8px 0;font-size:15px}
+        .actionsRow{display:flex;gap:8px;margin-top:12px}
+        .actionsRow .layui-btn{flex:1}
+
+        /* 小屏优化 */
+        @media (max-width:360px){
+            .searchWrap{width:44%}
+            .headline{font-size:14px}
+            .tag{padding:5px 6px;font-size:12px}
+        }
+    </style>
+</head>
+<body>
+
+<div class="top">
+    <div>
+        <div class="title">健康指导建议</div>
+        <div class="subtitle">贴心、可收藏的生活方式与用药建议</div>
+    </div>
+
+    <div class="searchWrap">
+        <div class="searchBox" role="search">
+            <svg style="width:16px;height:16px;color:var(--muted)" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <input id="kw" placeholder="搜索建议（回车）">
+        </div>
+        <div class="iconBtn" id="favFilter" title="仅显示收藏">
+            <svg style="width:18px;height:18px;color:var(--primary)" viewBox="0 0 24 24" fill="none"><path d="M12 21l-8.5-5.2V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v9.8L12 21z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+    </div>
+</div>
+
+<div class="cats" id="cats">
+    <div class="catBtn active" data-cat="all">全部</div>
+    <div class="catBtn" data-cat="diet">饮食</div>
+    <div class="catBtn" data-cat="sport">运动</div>
+    <div class="catBtn" data-cat="psych">心理</div>
+    <div class="catBtn" data-cat="medic">用药</div>
+    <div class="catBtn" data-cat="other">其他</div>
+</div>
+
+<div id="list" class="list" aria-live="polite"></div>
+<div id="empty" class="empty" style="display:none">暂无符合条件的建议</div>
+
+<!-- layui 与页面脚本 -->
+<script>
+    layui.use(['layer'], function(){
+        const layer = layui.layer;
+
+        // 模拟建议数据（示例），在集成时请替换为后端接口
+        const sample = [
+            { id:1, title:'控制每日盐摄入量', category:'diet', excerpt:'成年人每日食盐摄入建议不超过6克，高血压患者应更严格控制。', content:'建议逐步减少口味偏咸的食物，使用蒸、煮、炖等烹饪方式，避免高盐酱料；增加蔬菜水果摄入帮助调节口味。', author:'营养师 李婷', date:'2025-08-01'},
+            { id:2, title:'每周至少150分钟中等强度运动', category:'sport', excerpt:'坚持有氧运动有助于心肺健康和血糖血脂控制。', content:'可将运动分散到每周大多数天，每次30分钟左右，如快走、骑行、游泳；结合力量训练每周至少2次。', author:'康复师 王强', date:'2025-07-20'},
+            { id:3, title:'改善睡眠习惯以缓解焦虑', category:'psych', excerpt:'规律作息与睡前放松能改善睡眠质量，帮助情绪恢复。', content:'建议建立固定睡眠时间，避免睡前使用电子设备；可尝试渐进性肌肉放松或冥想；白天适量运动帮助夜间入睡。', author:'心理咨询师 赵敏', date:'2025-06-15'},
+            { id:4, title:'正确使用降压药物', category:'medic', excerpt:'遵医嘱长期服药是控制血压的关键，不要擅自停药。', content:'按医生处方服用，不随意调整剂量；出现不良反应及时就诊；定期监测血压并携带用药记录就诊。', author:'内科医生 陈亮', date:'2025-04-12'},
+            { id:5, title:'多喝白开水，避免含糖饮料', category:'diet', excerpt:'含糖饮料会增加热量摄入并影响血糖、体重。', content:'以白开水为主，不喝或少喝碳酸和果汁饮料；如果需要口感，可在水中加入柠檬片或薄荷。', author:'营养师 李婷', date:'2025-05-30'},
+            { id:6, title:'工作间歇做眼保健操', category:'other', excerpt:'长时间近距离用眼建议定期休息以缓解视疲劳。', content:'采用20-20-20规则：每工作20分钟，远眺20英尺（约6米）至少20秒；并做眼保健操，保持良好照明。', author:'眼科 康复团队', date:'2025-03-10'},
+        ];
+
+        // 本地收藏存储 key
+        const STORAGE_KEY = 'health_advice_favs_v1';
+        function loadFavs(){
+            try{
+                const raw = localStorage.getItem(STORAGE_KEY);
+                return raw ? JSON.parse(raw) : [];
+            }catch(e){ return []; }
+        }
+        function saveFavs(arr){
+            try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }catch(e){}
+        }
+
+        let favs = loadFavs(); // 存储 id 数组
+        let data = sample.slice(); // 可由外部接口替换
+        const state = { cat:'all', keyword:'', onlyFav:false };
+
+        const listEl = document.getElementById('list');
+        const emptyEl = document.getElementById('empty');
+
+        function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+        function tagLabel(cat){
+            switch(cat){
+                case 'diet': return '<span class="tag diet">饮食</span>';
+                case 'sport': return '<span class="tag sport">运动</span>';
+                case 'psych': return '<span class="tag psych">心理</span>';
+                case 'medic': return '<span class="tag medic">用药</span>';
+                default: return '<span class="tag other">其他</span>';
+            }
+        }
+
+        function render(){
+            const kw = (state.keyword||'').trim().toLowerCase();
+            let list = data.slice().reverse();
+            if(state.cat !== 'all') list = list.filter(i=>i.category === state.cat);
+            if(state.onlyFav) list = list.filter(i=> favs.includes(i.id) );
+            if(kw){
+                list = list.filter(i => (i.title && i.title.toLowerCase().includes(kw)) || (i.excerpt && i.excerpt.toLowerCase().includes(kw)) || (i.content && i.content.toLowerCase().includes(kw)) );
+            }
+
+            listEl.innerHTML = '';
+            if(list.length === 0){
+                emptyEl.style.display = 'block';
+                return;
+            } else {
+                emptyEl.style.display = 'none';
+            }
+
+            list.forEach(item=>{
+                const isFav = favs.includes(item.id);
+                const card = document.createElement('article');
+                card.className = 'card';
+                card.innerHTML = `
+            <div class="cardLeft">
+              <div style="display:flex;align-items:center;gap:8px">
+                ${tagLabel(item.category)}
+                <div style="flex:1;min-width:0">
+                  <div class="headline">${esc(item.title)}</div>
+                  <div class="excerpt">${esc(item.excerpt)}</div>
+                </div>
+              </div>
+              <div class="metaRow">
+                <div>${esc(item.author)}</div>
+                <div>·</div>
+                <div>${esc(item.date)}</div>
+              </div>
+            </div>
+            <div class="ops">
+              <button class="opBtn" data-act="fav" data-id="${item.id}" aria-label="收藏">${isFav?'已收藏':'收藏'}</button>
+              <button class="opBtn" data-act="detail" data-id="${item.id}" aria-label="查看">查看</button>
+            </div>
+          `;
+                listEl.appendChild(card);
+            });
+        }
+
+        // 事件代理：收藏/查看/分享 等
+        document.body.addEventListener('click', function(e){
+            const t = e.target;
+            // 分类按钮
+            if(t.classList.contains('catBtn')){
+                document.querySelectorAll('.catBtn').forEach(b=>b.classList.remove('active'));
+                t.classList.add('active');
+                state.cat = t.getAttribute('data-cat');
+                render();
+                return;
+            }
+            // 收藏开关
+            const favBtn = t.closest('[data-act="fav"]');
+            if(favBtn){
+                const id = Number(favBtn.getAttribute('data-id'));
+                if(favs.includes(id)){
+                    favs = favs.filter(x=>x!==id);
+                    layer.msg('已取消收藏', {offset:'t'});
+                } else {
+                    favs.push(id);
+                    layer.msg('已加入收藏', {offset:'t'});
+                }
+                saveFavs(favs);
+                render();
+                return;
+            }
+            // 查看详情
+            const det = t.closest('[data-act="detail"]');
+            if(det){
+                const id = Number(det.getAttribute('data-id'));
+                const item = data.find(x=>x.id===id);
+                if(item) openDetail(item);
+                return;
+            }
+            // 仅显示收藏开关
+            if(t.id === 'favFilter'){
+                state.onlyFav = !state.onlyFav;
+                t.style.background = state.onlyFav ? 'linear-gradient(90deg,#fff7ed,#fff)' : '';
+                layer.msg(state.onlyFav ? '仅显示收藏' : '显示全部', {offset:'t'});
+                render();
+                return;
+            }
+        });
+
+        // 搜索输入回车
+        document.getElementById('kw').addEventListener('keydown', function(e){
+            if(e.key === 'Enter'){
+                state.keyword = this.value || '';
+                render();
+            }
+        });
+
+        // 打开详情（layui 底部弹层）
+        function openDetail(item){
+            const isFav = favs.includes(item.id);
+            const html = `
+          <div class="modal-body">
+            <div class="modal-handle" aria-hidden="true"></div>
+            <h3 style="margin:6px 0 6px 0">${esc(item.title)}</h3>
+            <div style="color:var(--muted);font-size:13px">${esc(item.author)} · ${esc(item.date)}</div>
+
+            <div class="detail-section">
+              <h4>建议要点</h4>
+              <div style="font-size:14px;line-height:1.6">${esc(item.content)}</div>
+            </div>
+
+            <div class="detail-section">
+              <h4>更多说明</h4>
+              <div style="font-size:14px;line-height:1.6;color:var(--muted)">${esc(item.excerpt)}</div>
+            </div>
+
+            <div class="actionsRow">
+              <button class="layui-btn layui-btn-primary" id="shareBtn">分享</button>
+              <button class="layui-btn" id="favToggle">${isFav ? '取消收藏' : '收藏'}</button>
+              <button class="layui-btn layui-btn-warm" id="closeBtn">关闭</button>
+            </div>
+          </div>
+        `;
+            const idx = layer.open({
+                type:1, title:false, closeBtn:0, shadeClose:true, area:['100%','86%'], offset:'b', content: html,
+                success: function(dom){
+                    const content = dom;
+                    content.querySelector('#closeBtn').addEventListener('click', ()=>layer.close(idx));
+                    content.querySelector('#favToggle').addEventListener('click', function(){
+                        if(favs.includes(item.id)){
+                            favs = favs.filter(x=>x!==item.id);
+                            layer.msg('已取消收藏', {offset:'t'});
+                        } else {
+                            favs.push(item.id);
+                            layer.msg('已加入收藏', {offset:'t'});
+                        }
+                        saveFavs(favs);
+                        layer.close(idx);
+                        render();
+                    });
+                    content.querySelector('#shareBtn').addEventListener('click', function(){
+                        const text = `${item.title}\n\n${item.content}\n\n来自：${item.author}`;
+                        if(navigator.share){
+                            navigator.share({title: item.title, text: text, url: location.href}).catch(()=>layer.msg('分享取消', {offset:'t'}));
+                        } else {
+                            copyToClipboard(text).then(()=> layer.msg('分享内容已复制到剪贴板', {offset:'t'})).catch(()=> layer.msg('复制失败', {offset:'t'}));
+                        }
+                    });
+
+                    // 支持向下拖动关闭（简易）
+                    const layerBox = content.parentElement;
+                    let startY=0, cur=0, dragging=false;
+                    layerBox.addEventListener('touchstart', function(e){ if(e.touches.length!==1) return; startY = e.touches[0].clientY; dragging=true; layerBox.style.transition='none'; }, {passive:true});
+                    layerBox.addEventListener('touchmove', function(e){ if(!dragging) return; cur = e.touches[0].clientY - startY; if(cur>0) layerBox.style.transform = 'translateY(' + cur + 'px)'; }, {passive:true});
+                    layerBox.addEventListener('touchend', function(){ dragging=false; layerBox.style.transition='transform .2s ease'; if(cur > 120){ layer.close(idx); } else { layerBox.style.transform = ''; } startY=cur=0; }, {passive:true});
+                }
+            });
+        }
+
+        // 复制到剪贴板（Promise）
+        function copyToClipboard(text){
+            if(navigator.clipboard && navigator.clipboard.writeText){
+                return navigator.clipboard.writeText(text);
+            }
+            return new Promise(function(resolve, reject){
+                try{
+                    const ta = document.createElement('textarea');
+                    ta.value = text; document.body.appendChild(ta);
+                    ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                    resolve();
+                }catch(e){ reject(e); }
+            });
+        }
+
+        // 暴露接口，便于外部替换数据或调用
+        window.healthAdviceLayui = {
+            data: data,
+            setData: function(arr){
+                if(Array.isArray(arr)) data = arr;
+                render();
+            },
+            addSuggestion: function(item){
+                // item 必须包含 id,title,category,excerpt,content,author,date
+                data.push(item);
+                render();
+            },
+            openById: function(id){
+                const it = data.find(x=>x.id===id);
+                if(it) openDetail(it);
+            },
+            getFavs: function(){ return favs.slice(); }
+        };
+
+        // 初次渲染
+        render();
+
+    });
+</script>
+</body>
+</html>

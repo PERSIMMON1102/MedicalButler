@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人健康统计面板</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        :root {
+            --primary-color: #1a6aa2;
+            --secondary-color: #2c9c8a;
+            --accent-color: #f5b434;
+            --danger-color: #e74c3c;
+            --light-color: #f5f7fa;
+            --dark-color: #2c3e50;
+            --text-color: #333;
+            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            background-color: var(--light-color);
+            color: var(--text-color);
+            padding: 15px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border-radius: 10px;
+            box-shadow: var(--card-shadow);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        .description {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: var(--dark-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chart-subtitle {
+            font-size: 0.75rem;
+            color: #777;
+        }
+
+        .chart-container {
+            height: 250px;
+            width: 100%;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        label {
+            font-weight: bold;
+            color: var(--dark-color);
+            margin-right: 8px;
+            font-size: 0.9rem;
+        }
+
+        select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+            font-size: 0.9rem;
+            flex-grow: 1;
+            min-width: 120px;
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #155981;
+        }
+
+        .summary {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: var(--card-shadow);
+            margin-top: 15px;
+        }
+
+        .summary h2 {
+            color: var(--dark-color);
+            margin-bottom: 12px;
+            font-size: 1.2rem;
+        }
+
+        .summary p {
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .health-score {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 15px 0;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .score-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            min-width: 120px;
+        }
+
+        .score-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .score-label {
+            font-size: 0.8rem;
+            color: #777;
+        }
+
+        /* 移动端菜单 */
+        .mobile-tabs {
+            display: flex;
+            overflow-x: auto;
+            margin-bottom: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--card-shadow);
+            padding: 8px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .mobile-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .mobile-tab {
+            padding: 8px 15px;
+            white-space: nowrap;
+            border-radius: 20px;
+            margin-right: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            background: #f0f0f0;
+            transition: all 0.3s;
+        }
+
+        .mobile-tab.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* 饼图容器 */
+        .pie-charts {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .dashboard {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .pie-charts {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .controls {
+                flex-direction: row;
+            }
+
+            .control-group {
+                flex: 1;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .description {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>个人健康统计面板</h1>
+        <p class="description">可视化展示您的体检数据和健康趋势</p>
+    </header>
+
+    <div class="health-score">
+        <div class="score-card">
+            <div class="score-value">86</div>
+            <div class="score-label">健康评分</div>
+        </div>
+        <div class="score-card">
+            <div class="score-value">5/7</div>
+            <div class="score-label">正常指标</div>
+        </div>
+        <div class="score-card">
+            <div class="score-value">2</div>
+            <div class="score-label">需关注指标</div>
+        </div>
+    </div>
+
+    <div class="mobile-tabs">
+        <div class="mobile-tab active">全部</div>
+        <div class="mobile-tab">血压</div>
+        <div class="mobile-tab">血糖</div>
+        <div class="mobile-tab">胆固醇</div>
+        <div class="mobile-tab">BMI</div>
+        <div class="mobile-tab">肝功能</div>
+        <div class="mobile-tab">肾功能</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="timeRange">时间范围:</label>
+            <select id="timeRange">
+                <option value="1y">最近1年</option>
+                <option value="2y">最近2年</option>
+                <option value="3y">最近3年</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="dataType">数据视图:</label>
+            <select id="dataType">
+                <option value="all">全部数据</option>
+                <option value="trend">趋势视图</option>
+                <option value="compare">对比视图</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <button id="refreshBtn">刷新数据</button>
+        </div>
+    </div>
+
+    <div class="pie-charts">
+        <div class="chart-card">
+            <div class="chart-title">
+                <span>健康指标分布</span>
+            </div>
+            <div id="healthDistributionChart" class="chart-container"></div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">
+                <span>风险因素分析</span>
+            </div>
+            <div id="riskFactorsChart" class="chart-container"></div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="chart-card">
+            <div class="chart-title">
+                <span>血压趋势 (mmHg)</span>
+                <span class="chart-subtitle">正常范围: 90-120/60-80</span>
+            </div>
+            <div id="bloodPressureChart" class="chart-container"></div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">
+                <span>血糖水平 (mg/dL)</span>
+                <span class="chart-subtitle">正常范围: 70-100 (空腹)</span>
+            </div>
+            <div id="bloodSugarChart" class="chart-container"></div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">
+                <span>胆固醇指标 (mg/dL)</span>
+                <span class="chart-subtitle">正常范围: <200</span>
+            </div>
+            <div id="cholesterolChart" class="chart-container"></div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">
+                <span>身体质量指数 (BMI)</span>
+                <span class="chart-subtitle">正常范围: 18.5-24.9</span>
+            </div>
+            <div id="bmiChart" class="chart-container"></div>
+        </div>
+    </div>
+
+    <div class="summary">
+        <h2>健康摘要</h2>
+        <p>根据您最近的健康数据，您的血压和血糖水平保持在正常范围内，胆固醇指标略有偏高，建议减少饱和脂肪摄入并增加运动量。BMI指数显示您处于健康体重范围，肝功能和肾功能指标正常。继续保持健康的生活方式，定期监测这些指标。</p>
+    </div>
+</div>
+
+<script>
+    // 模拟健康数据
+    function generateHealthData() {
+        const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+        const years = ['2021', '2022', '2023'];
+
+        return {
+            months,
+            years,
+            bloodPressure: {
+                systolic: years.flatMap(year =>
+                    months.map(() => Math.floor(Math.random() * 30) + 100) // 100-130
+                ),
+                diastolic: years.flatMap(year =>
+                    months.map(() => Math.floor(Math.random() * 20) + 60) // 60-80
+                )
+            },
+            bloodSugar: years.flatMap(year =>
+                months.map(() => Math.floor(Math.random() * 30) + 70) // 70-100
+            ),
+            cholesterol: {
+                total: years.flatMap(year =>
+                    months.map(() => Math.floor(Math.random() * 100) + 150) // 150-250
+                ),
+                ldl: years.flatMap(year =>
+                    months.map(() => Math.floor(Math.random() * 70) + 70) // 70-140
+                ),
+                hdl: years.flatMap(year =>
+                    months.map(() => Math.floor(Math.random() * 30) + 40) // 40-70
+                )
+            },
+            bmi: years.flatMap(year =>
+                months.map(() => (Math.random() * 4) + 20) // 20-24
+            ),
+            liver: {
+                alt: years.flatMap(year =>
+                    months.map(() => Math.floor(Math.random() * 40) + 20) // 20-60
+                ),
+                ast: years.flatMap(year =>
+                    months.map(() => Math.floor(Math.random() * 35) + 15) // 15-50
+                )
+            },
+            kidney: {
+                creatinine: years.flatMap(year =>
+                    months.map(() => (Math.random() * 0.7) + 0.5) // 0.5-1.2
+                ),
+                bun: years.flatMap(year =>
+                    months.map(() => Math.floor(Math.random() * 15) + 5) // 5-20
+                )
+            }
+        };
+    }
+
+    const healthData = generateHealthData();
+    const allMonths = healthData.years.flatMap(year =>
+        healthData.months.map(month => `${year}${month}`)
+    );
+
+    // 初始化图表
+    function initCharts() {
+        // 健康指标分布饼图
+        const healthDistributionChart = echarts.init(document.getElementById('healthDistributionChart'));
+        healthDistributionChart.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: '{a} <br/>{b}: {c} ({d}%)'
+            },
+            legend: {
+                orient: 'horizontal',
+                bottom: 0,
+                data: ['优秀', '良好', '一般', '需关注']
+            },
+            series: [
+                {
+                    name: '健康指标',
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    avoidLabelOverlap: false,
+                    itemStyle: {
+                        borderRadius: 10,
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    },
+                    label: {
+                        show: false,
+                        position: 'center'
+                    },
+                    emphasis: {
+                        label: {
+                            show: true,
+                            fontSize: '14',
+                            fontWeight: 'bold'
+                        }
+                    },
+                    labelLine: {
+                        show: false
+                    },
+                    data: [
+                        { value: 35, name: '优秀', itemStyle: { color: '#2c9c8a' } },
+                        { value: 30, name: '良好', itemStyle: { color: '#5ab1ef' } },
+                        { value: 25, name: '一般', itemStyle: { color: '#f5b434' } },
+                        { value: 10, name: '需关注', itemStyle: { color: '#e74c3c' } }
+                    ]
+                }
+            ]
+        });
+
+        // 风险因素分析饼图
+        const riskFactorsChart = echarts.init(document.getElementById('riskFactorsChart'));
+        riskFactorsChart.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: '{a} <br/>{b}: {c} ({d}%)'
+            },
+            legend: {
+                orient: 'horizontal',
+                bottom: 0,
+                data: ['饮食', '运动', '睡眠', '压力', '遗传']
+            },
+            series: [
+                {
+                    name: '风险因素',
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    avoidLabelOverlap: false,
+                    itemStyle: {
+                        borderRadius: 10,
+                        borderColor: '#fff',
+                        borderWidth: 2
+                    },
+                    label: {
+                        show: false,
+                        position: 'center'
+                    },
+                    emphasis: {
+                        label: {
+                            show: true,
+                            fontSize: '14',
+                            fontWeight: 'bold'
+                        }
+                    },
+                    labelLine: {
+                        show: false
+                    },
+                    data: [
+                        { value: 40, name: '饮食', itemStyle: { color: '#5470c6' } },
+                        { value: 25, name: '运动', itemStyle: { color: '#91cc75' } },
+                        { value: 15, name: '睡眠', itemStyle: { color: '#fac858' } },
+                        { value: 12, name: '压力', itemStyle: { color: '#ee6666' } },
+                        { value: 8, name: '遗传', itemStyle: { color: '#73c0de' } }
+                    ]
+                }
+            ]
+        });
+
+        // 血压图表
+        const bpChart = echarts.init(document.getElementById('bloodPressureChart'));
+        bpChart.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' }
+            },
+            legend: {
+                data: ['收缩压', '舒张压'],
+                bottom: 0
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '15%',
+                top: '15%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                data: allMonths,
+                axisLabel: {
+                    rotate: 45,
+                    fontSize: 10
+                }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'mmHg'
+            },
+            series: [
+                {
+                    name: '收缩压',
+                    type: 'line',
+                    data: healthData.bloodPressure.systolic,
+                    smooth: true,
+                    lineStyle: { width: 3 },
+                    color: '#5470C6'
+                },
+                {
+                    name: '舒张压',
+                    type: 'line',
+                    data: healthData.bloodPressure.diastolic,
+                    smooth: true,
+                    lineStyle: { width: 3 },
+                    color: '#91CC75'
+                }
+            ]
+        });
+
+        // 血糖图表
+        const bsChart = echarts.init(document.getElementById('bloodSugarChart'));
+        bsChart.setOption({
+            tooltip: {
+                trigger: 'axis'
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '10%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                data: allMonths,
+                axisLabel: {
+                    rotate: 45,
+                    fontSize: 10
+                }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'mg/dL'
+            },
+            series: [
+                {
+                    name: '血糖',
+                    type: 'line',
+                    data: healthData.bloodSugar,
+                    smooth: true,
+                    lineStyle: { width: 3 },
+                    color: '#EE6666',
+                    markArea: {
+                        itemStyle: {
+                            color: 'rgba(238, 102, 102, 0.1)'
+                        },
+                        data: [[
+                            { yAxis: 70 },
+                            { yAxis: 100 }
+                        ]]
+                    }
+                }
+            ]
+        });
+
+        // 胆固醇图表
+        const cholChart = echarts.init(document.getElementById('cholesterolChart'));
+        cholChart.setOption({
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: { type: 'shadow' }
+            },
+            legend: {
+                data: ['总胆固醇', 'LDL', 'HDL'],
+                bottom: 0
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '15%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                data: allMonths,
+                axisLabel: {
+                    rotate: 45,
+                    fontSize: 10
+                }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'mg/dL'
+            },
+            series: [
+                {
+                    name: '总胆固醇',
+                    type: 'bar',
+                    data: healthData.cholesterol.total,
+                    color: '#5470C6'
+                },
+                {
+                    name: 'LDL',
+                    type: 'bar',
+                    data: healthData.cholesterol.ldl,
+                    color: '#EE6666'
+                },
+                {
+                    name: 'HDL',
+                    type: 'bar',
+                    data: healthData.cholesterol.hdl,
+                    color: '#91CC75'
+                }
+            ]
+        });
+
+        // BMI图表
+        const bmiChart = echarts.init(document.getElementById('bmiChart'));
+        bmiChart.setOption({
+            tooltip: {
+                trigger: 'axis'
+            },
+            grid: {
+                left: '3%',
+                right: '4%',
+                bottom: '10%',
+                containLabel: true
+            },
+            xAxis: {
+                type: 'category',
+                data: allMonths,
+                axisLabel: {
+                    rotate: 45,
+                    fontSize: 10
+                }
+            },
+            yAxis: {
+                type: 'value',
+                name: 'BMI'
+            },
+            series: [
+                {
+                    name: 'BMI',
+                    type: 'line',
+                    data: healthData.bmi,
+                    smooth: true,
+                    lineStyle: { width: 3 },
+                    color: '#FAC858',
+                    markArea: {
+                        itemStyle: {
+                            color: 'rgba(250, 200, 88, 0.1)'
+                        },
+                        data: [[
+                            { yAxis: 18.5 },
+                            { yAxis: 24.9 }
+                        ]]
+                    }
+                }
+            ]
+        });
+
+        // 响应窗口调整大小
+        window.addEventListener('resize', function() {
+            healthDistributionChart.resize();
+            riskFactorsChart.resize();
+            bpChart.resize();
+            bsChart.resize();
+            cholChart.resize();
+            bmiChart.resize();
+        });
+    }
+
+    // 页面加载完成后初始化图表
+    document.addEventListener('DOMContentLoaded', initCharts);
+
+    // 添加控件交互
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        // 在实际应用中，这里会从服务器获取新数据
+        // 这里我们只是重新生成模拟数据并重新渲染图表
+        initCharts();
+    });
+
+    // 移动端标签切换
+    const tabs = document.querySelectorAll('.mobile-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            tabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            // 这里可以添加筛选图表的逻辑
+        });
+    });
+</script>
+</body>
+</html>

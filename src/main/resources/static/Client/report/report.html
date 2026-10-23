@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+    <title>历史检测报告（移动优先 · layui）</title>
+
+    <!-- 根据项目路径调整 -->
+    <link rel="stylesheet" href="../../layui/css/layui.css">
+    <script src="../../layui/layui.js"></script>
+
+    <style>
+        :root{
+            --bg:#f4f7fb; --card:#ffffff; --muted:#6b7280; --primary:#1565d8; --danger:#e53e3e; --success:#16a34a;
+        }
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{
+            margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",Arial;
+            background:linear-gradient(180deg,var(--bg),#fff); color:#0f172a; -webkit-font-smoothing:antialiased;
+            -webkit-text-size-adjust:100%; padding-bottom:24px;
+        }
+
+        /* 顶栏 */
+        .top{
+            position:sticky; top:0; z-index:60; background:rgba(255,255,255,0.98); padding:12px 14px; border-bottom:1px solid rgba(15,23,42,0.04);
+            display:flex; gap:10px; align-items:center;
+            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(6px);
+        }
+        .title{font-weight:700; font-size:16px}
+        .sub{font-size:12px;color:var(--muted)}
+        .searchWrap{margin-left:auto; display:flex; gap:8px; align-items:center; width:60%}
+        .searchBox{flex:1; display:flex; align-items:center; gap:8px; background:#fff; border-radius:999px; padding:8px 10px; box-shadow:0 6px 18px rgba(2,6,23,0.04)}
+        .searchBox input{border:0;outline:0;background:transparent;width:100%;font-size:14px}
+        .iconBtn{width:36px;height:36px;border-radius:10px;background:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+
+        /* 筛选 */
+        .filters{padding:10px 12px; display:flex; gap:8px; align-items:center; overflow:auto}
+        .seg{display:flex; gap:8px}
+        .seg button{padding:8px 12px;border-radius:999px;border:0;background:#fff;color:var(--muted);font-weight:600;box-shadow:0 6px 18px rgba(2,6,23,0.04)}
+        .seg button.active{background:var(--primary);color:#fff}
+
+        /* 列表 */
+        .list{padding:8px 12px; display:flex; flex-direction:column; gap:10px}
+        .card{background:var(--card); border-radius:12px; padding:12px; display:flex; gap:12px; align-items:flex-start; box-shadow:0 10px 30px rgba(2,6,23,0.06); border-left:6px solid transparent}
+        .avatar{min-width:52px;height:52px;border-radius:10px;background:linear-gradient(135deg,#e6f2ff,#f3f8ff);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--primary);font-size:16px}
+        .meta{flex:1;min-width:0}
+        .nameLine{font-weight:700;font-size:15px;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .subLine{font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+        .project{font-size:13px;color:#0f172a;font-weight:600}
+
+        .statusCol{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+        .badge{padding:6px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:13px}
+        .badge.pending{background:linear-gradient(90deg,#9ca3af,#6b7280)}
+        .badge.normal{background:linear-gradient(90deg,#34d399,#059669)}
+        .badge.abnormal{background:linear-gradient(90deg,#fb923c,#ef4444)}
+
+        .ops{display:flex;gap:8px;flex-direction:column}
+        .op{min-width:82px;padding:10px 12px;border-radius:10px;border:1px solid rgba(15,23,42,0.06);background:transparent;font-size:14px;cursor:pointer;text-align:center}
+
+        .empty{padding:36px;text-align:center;color:var(--muted)}
+
+        /* 加载更多 */
+        .loadMoreWrap{display:flex;justify-content:center;padding:12px}
+        .loadMoreBtn{padding:10px 14px;border-radius:10px;border:0;background:#fff;box-shadow:0 6px 18px rgba(2,6,23,0.04);cursor:pointer}
+
+        /* 弹层（底部） */
+        .layui-layer-content.modal-body{ padding:10px 12px; border-top-left-radius:14px; border-top-right-radius:14px; overflow:auto; max-height:86vh }
+        .modal-handle{width:44px;height:5px;background:#e6e6e6;border-radius:999px;margin:8px auto}
+
+        .detailTable{width:100%; border-collapse:collapse; margin-top:8px; font-size:14px}
+        .detailTable th, .detailTable td{padding:10px; text-align:left; border-bottom:1px solid rgba(15,23,42,0.04)}
+        .detailTable thead th{color:var(--muted); font-weight:600}
+
+        .modalActions{display:flex;gap:8px;margin-top:12px}
+        .modalActions .layui-btn{flex:1}
+
+        /* 小屏优化 */
+        @media (max-width:380px){
+            .searchWrap{width:48%}
+            .op{min-width:72px;padding:10px}
+            .avatar{min-width:48px;height:48px}
+            .title{font-size:15px}
+        }
+    </style>
+</head>
+<body>
+
+<div class="top" role="banner">
+    <div>
+        <div class="title">历史检测报告</div>
+        <div class="sub">仅供本人/被授权人查看</div>
+    </div>
+
+    <div class="searchWrap" role="search">
+        <div class="searchBox" aria-label="搜索">
+            <svg style="width:16px;height:16px;flex:0 0 16px;color:var(--muted)" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <input id="kw" aria-label="搜索报告" placeholder="体检号/姓名/项目/医生/日期（回车）">
+        </div>
+        <div class="iconBtn" id="filterBtn" title="筛选" role="button" aria-label="筛选">
+            <svg style="width:18px;height:18px;color:var(--primary)" viewBox="0 0 24 24" fill="none"><path d="M22 6h-10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M2 6h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M17 12H7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M2 12h2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M22 18H11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M2 18h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </div>
+    </div>
+</div>
+
+<div class="filters" id="filters" role="region" aria-label="筛选">
+    <div style="font-size:13px;color:var(--muted);padding:6px 8px">结果：</div>
+    <div class="seg" role="tablist">
+        <button data-filter="all" class="active" role="tab">全部</button>
+        <button data-filter="normal" role="tab">正常</button>
+        <button data-filter="abnormal" role="tab">异常</button>
+        <button data-filter="pending" role="tab">待检</button>
+    </div>
+    <div style="margin-left:auto;font-size:13px;color:var(--muted);padding-right:6px">共 <span id="totalCount">0</span> 条</div>
+</div>
+
+<div id="list" class="list" aria-live="polite"></div>
+<div id="empty" class="empty" style="display:none">暂无符合条件的历史检测记录</div>
+<div class="loadMoreWrap"><button id="loadMore" class="loadMoreBtn">加载更多</button></div>
+
+<script>
+    layui.use(['layer'], function(){
+        const layer = layui.layer;
+
+        // 模拟数据（与之前类似）
+        const projects = ['血常规','尿常规','肝功能','肾功能','血糖','血脂','心电图','胸片'];
+        const doctors = ['王医生','李医生','张医生','赵医生','陈医生'];
+        const names = ['张伟','王芳','李强','刘洋','陈敏','赵磊','孙丽'];
+        const genders = ['男','女'];
+
+        function randomDate(start='2023-01-01', end='2025-08-30'){
+            const s = new Date(start).getTime(), e = new Date(end).getTime();
+            const t = new Date(s + Math.random()*(e-s));
+            return t.toISOString().slice(0,10);
+        }
+        function rand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+        function sampleDetails(project){
+            if(project === '血常规'){
+                return [
+                    {name:'白细胞(WBC)', value:'5.4', unit:'10^9/L', range:'4.0-10.0', conclusion:'正常'},
+                    {name:'红细胞(RBC)', value:'4.6', unit:'10^12/L', range:'3.8-5.5', conclusion:'正常'}
+                ];
+            }
+            return [
+                {name:'指标A', value:(Math.random()*10+1).toFixed(2), unit:'单位', range:'参考', conclusion:Math.random()>0.85?'异常':'正常'},
+                {name:'指标B', value:(Math.random()*50+5).toFixed(2), unit:'单位', range:'参考', conclusion:Math.random()>0.9?'异常':'正常'},
+            ];
+        }
+
+        let allData = [];
+        for(let i=1;i<=50;i++){
+            const proj = rand(projects);
+            const r = Math.random();
+            const status = r < 0.25 ? 0 : (r < 0.8 ? 1 : 2);
+            allData.push({
+                id:1000+i,
+                examNo:'EX'+(1000+i),
+                name:rand(names),
+                gender:rand(genders),
+                age: 20 + Math.floor(Math.random()*45),
+                check_time: randomDate(),
+                project: proj,
+                doctor: rand(doctors),
+                remark: rand(['常规体检','复检','单位体检']),
+                status: status,
+                result: status===0?'待检':(status===1?'正常':'异常'),
+                audit_time: status===0?null: randomDate(),
+                abnormal_note: status===2? '检测到轻度异常，建议复查。' : '',
+                suggestion: status===2? '建议 2周后复查并带此报告就诊。' : '',
+                details: sampleDetails(proj)
+            });
+        }
+
+        // 分页（简单模拟）
+        let pageSize = 12, pageIndex = 0;
+        const state = { keyword:'', filter:'all' };
+
+        const listEl = document.getElementById('list');
+        const totalCountEl = document.getElementById('totalCount');
+        const emptyEl = document.getElementById('empty');
+        const loadMoreBtn = document.getElementById('loadMore');
+
+        function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+        function badgeClass(status){ return status===1?'normal':(status===2?'abnormal':'pending') }
+
+        function filterData(){
+            const kw = (state.keyword||'').trim().toLowerCase();
+            let list = allData.slice().reverse();
+            if(state.filter !== 'all'){
+                if(state.filter === 'normal') list = list.filter(x=>x.status===1);
+                if(state.filter === 'abnormal') list = list.filter(x=>x.status===2);
+                if(state.filter === 'pending') list = list.filter(x=>x.status===0);
+            }
+            if(kw){
+                list = list.filter(it=>{
+                    return (it.examNo && it.examNo.toLowerCase().includes(kw))
+                        || (it.name && it.name.toLowerCase().includes(kw))
+                        || (it.project && it.project.toLowerCase().includes(kw))
+                        || (it.doctor && it.doctor.toLowerCase().includes(kw))
+                        || (it.check_time && it.check_time.toLowerCase().includes(kw))
+                        || (it.remark && it.remark.toLowerCase().includes(kw));
+                });
+            }
+            return list;
+        }
+
+        // 渲染（分页）
+        function render(resetPage){
+            if(resetPage){ pageIndex = 0; listEl.innerHTML = ''; }
+            const filtered = filterData();
+            totalCountEl.textContent = filtered.length;
+
+            const start = pageIndex * pageSize;
+            const slice = filtered.slice(start, start + pageSize);
+
+            if(start === 0 && slice.length === 0){
+                emptyEl.style.display = 'block';
+                loadMoreBtn.style.display = 'none';
+                return;
+            } else {
+                emptyEl.style.display = 'none';
+            }
+
+            slice.forEach(item=>{
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+        <div style="display:flex;gap:10px;flex:1;min-width:0">
+          <div class="avatar" aria-hidden="true">${esc(item.name.slice(0,1))}</div>
+          <div class="meta">
+            <div class="nameLine">${esc(item.name)} · ${esc(item.gender)} · ${esc(item.age)}岁</div>
+            <div class="subLine">
+              <div class="project">${esc(item.project)}</div>
+              <div>${esc(item.check_time)}</div>
+              <div style="color:var(--muted)">${esc(item.doctor)}</div>
+            </div>
+          </div>
+        </div>
+        <div class="statusCol">
+          <div class="badge ${badgeClass(item.status)}">${esc(item.result)}</div>
+          <div class="ops">
+            <div class="op" data-act="detail" data-id="${item.id}" role="button" aria-label="查看">查看</div>
+            <div class="op" data-act="download" data-id="${item.id}" role="button" aria-label="下载">下载</div>
+          </div>
+        </div>
+      `;
+                listEl.appendChild(card);
+            });
+
+            // 更新 load more visibility
+            const moreAvailable = (start + pageSize) < filtered.length;
+            loadMoreBtn.style.display = moreAvailable ? 'inline-flex' : 'none';
+        }
+
+        render(true);
+
+        // 加载更多
+        loadMoreBtn.addEventListener('click', function(){
+            pageIndex++;
+            render(false);
+        });
+
+        // 事件代理
+        document.body.addEventListener('click', function(e){
+            const t = e.target;
+            const actEl = t.closest('[data-act]');
+            if(actEl){
+                const act = actEl.getAttribute('data-act');
+                const id = actEl.getAttribute('data-id');
+                const item = allData.find(x=>String(x.id)===String(id));
+                if(act === 'detail' && item){
+                    openDetail(item);
+                } else if(act === 'download'){
+                    layer.msg('开始下载报告（模拟）...', {offset:'t'});
+                    setTimeout(()=>layer.msg('下载完成（模拟）', {offset:'t'}), 700);
+                }
+                return;
+            }
+
+            if(t === document.getElementById('filterBtn')){
+                document.getElementById('filters').scrollIntoView({behavior:'smooth'});
+                return;
+            }
+        });
+
+        // 搜索 Enter
+        document.getElementById('kw').addEventListener('keydown', function(e){
+            if(e.key === 'Enter'){
+                state.keyword = this.value || '';
+                render(true);
+            }
+        });
+
+        // 筛选按钮
+        document.querySelectorAll('.seg button').forEach(btn=>{
+            btn.addEventListener('click', function(){
+                document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('active'));
+                this.classList.add('active');
+                state.filter = this.getAttribute('data-filter');
+                render(true);
+            });
+        });
+
+        // 打开详情（使用 layui layer），增强关闭交互
+        function openDetail(item){
+            const rows = item.details.map(d=>`<tr><td>${esc(d.name)}</td><td>${esc(d.value)} ${esc(d.unit||'')}</td><td>${esc(d.range)}</td><td>${esc(d.conclusion)}</td></tr>`).join('');
+            const html = `
+      <div class="modal-body" role="dialog" aria-modal="true" aria-label="体检报告详情">
+        <div class="modal-handle" aria-hidden="true"></div>
+        <h3 style="margin:6px 0 6px 0">体检 ${esc(item.examNo)} · ${esc(item.name)}</h3>
+        <div class="layui-row layui-col-space5" style="margin-bottom:6px">
+          <div class="layui-col-xs6 layui-col-sm6"><div class="small">性别：${esc(item.gender)} · 年龄：${esc(item.age)}岁</div></div>
+          <div class="layui-col-xs6 layui-col-sm6" style="text-align:right"><div class="small">${item.audit_time?('审核：'+esc(item.audit_time)) : ''}</div></div>
+        </div>
+
+        <div style="margin-top:6px">
+          <div><strong>检查时间：</strong> ${esc(item.check_time)}</div>
+          <div style="margin-top:6px"><strong>检查项目：</strong> ${esc(item.project)}</div>
+          <div style="margin-top:6px"><strong>主检医生：</strong> ${esc(item.doctor)}</div>
+          <div style="margin-top:6px"><strong>备注：</strong> ${esc(item.remark)}</div>
+        </div>
+
+        ${item.abnormal_note ? `<div style="margin-top:10px;padding:10px;border-radius:8px;background:#fff6f6;border-left:4px solid var(--danger)"><strong style="color:var(--danger)">异常说明：</strong><div class="small" style="margin-top:6px">${esc(item.abnormal_note)}</div></div>` : ''}
+        ${item.suggestion ? `<div style="margin-top:10px;padding:10px;border-radius:8px;background:#f7fff5;border-left:4px solid var(--success)"><strong style="color:var(--success)">建议：</strong><div class="small" style="margin-top:6px">${esc(item.suggestion)}</div></div>` : ''}
+
+        <div style="margin-top:12px;font-weight:700">化验单明细</div>
+        <div style="overflow:auto;margin-top:6px">
+          <table class="detailTable" role="table" aria-label="化验单明细">
+            <thead><tr><th>项目</th><th>结果</th><th>参考范围</th><th>结论</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+
+        <div class="modalActions">
+          <button class="layui-btn layui-btn-primary" id="printBtn">打印</button>
+          <button class="layui-btn" id="downloadBtn">下载</button>
+          <button class="layui-btn layui-btn-warm" id="closeBtn">关闭</button>
+        </div>
+      </div>
+    `;
+
+            const idx = layer.open({
+                type:1,
+                title:false,
+                closeBtn:1,
+                shadeClose:true,
+                area:['85%','86%'],
+                offset:'b',
+                content: html,
+                success: function(layero){
+                    // layero 是当前弹层的 jQuery-like DOM（layui v2 返回 layero）
+                    // 安全获得 content DOM
+                    const content = layero[0].querySelector('.modal-body');
+
+                    // 绑定关闭（确保无论怎样都能关闭）
+                    const closeHandler = function(){
+                        try{ layer.close(idx); }catch(e){ layer.closeAll('page'); }
+                    };
+                    const downloadHandler = function(){
+                        layer.msg('开始下载报告（模拟）...', {offset:'t'});
+                        setTimeout(()=>layer.msg('下载完成（模拟）', {offset:'t'}), 800);
+                    };
+                    const printHandler = function(){
+                        const htmlForPrint = content.innerHTML;
+                        const w = window.open('', '_blank');
+                        w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>打印报告</title><style>body{font-family:Arial,Helvetica,sans-serif;padding:16px;color:#111}</style></head><body>' + htmlForPrint + '</body></html>');
+                        w.document.close();
+                        setTimeout(()=>w.print(), 500);
+                    };
+
+                    const closeBtn = content.querySelector('#closeBtn');
+                    const downloadBtn = content.querySelector('#downloadBtn');
+                    const printBtn = content.querySelector('#printBtn');
+
+                    if(closeBtn) closeBtn.addEventListener('click', closeHandler);
+                    if(downloadBtn) downloadBtn.addEventListener('click', downloadHandler);
+                    if(printBtn) printBtn.addEventListener('click', printHandler);
+
+                    // 允许按 Esc 键关闭（针对键盘用户）
+                    const escListener = function(e){
+                        if(e.key === 'Escape' || e.key === 'Esc') closeHandler();
+                    };
+                    document.addEventListener('keydown', escListener);
+
+                    // 支持向下拖动关闭（更稳健）
+                    const layerBox = layero[0]; // 最外层 DOM
+                    let startY = 0, cur = 0, dragging = false;
+                    const maxTranslate = window.innerHeight * 0.7; // 最大可拖动距离
+                    const onTouchStart = function(e){ if(e.touches.length!==1) return; startY = e.touches[0].clientY; dragging=true; layerBox.style.transition='none'; };
+                    const onTouchMove = function(e){ if(!dragging) return; cur = e.touches[0].clientY - startY; if(cur>0){ const t = Math.min(cur, maxTranslate); layerBox.style.transform = 'translateY(' + t + 'px)'; } };
+                    const onTouchEnd = function(){ dragging=false; layerBox.style.transition='transform .25s ease'; if(cur > 120){ closeHandler(); } else { layerBox.style.transform = ''; } startY=cur=0; };
+
+                    layerBox.addEventListener('touchstart', onTouchStart, {passive:true});
+                    layerBox.addEventListener('touchmove', onTouchMove, {passive:true});
+                    layerBox.addEventListener('touchend', onTouchEnd, {passive:true});
+
+                    // 清理：当 layer 关闭时移除监听和按键
+                    const origClose = layer.close;
+                    // 使用 layer.ready 或监听 layer close 事件并移除 escListener & touch listeners
+                    // layui 没有直接 close 回调参数可用，我们用 interval 轮询检测 layer 是否还在 DOM 中（轻量清理）
+                    const intervalId = setInterval(()=>{
+                        if(!document.body.contains(layerBox)){
+                            document.removeEventListener('keydown', escListener);
+                            try{
+                                layerBox.removeEventListener('touchstart', onTouchStart);
+                                layerBox.removeEventListener('touchmove', onTouchMove);
+                                layerBox.removeEventListener('touchend', onTouchEnd);
+                            }catch(e){}
+                            clearInterval(intervalId);
+                        }
+                    }, 300);
+                }
+            });
+        }
+
+        // 对外接口
+        window.healthHistoryLayui = {
+            data: allData,
+            render: function(arr){
+                if(Array.isArray(arr)) allData = arr;
+                render(true);
+            },
+            openDetailById: function(id){
+                const it = allData.find(x=>String(x.id)===String(id));
+                if(it) openDetail(it);
+            }
+        };
+
+    });
+</script>
+
+</body>
+</html>

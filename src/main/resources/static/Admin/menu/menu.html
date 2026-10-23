@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>套餐管理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="../../layui/css/layui.css" rel="stylesheet">
+    <style>
+        body { padding: 12px; background:#f5f7fa; }
+        .tool-bar { margin-bottom: 12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+        .search-box { display:flex; gap:8px; align-items:center; flex:1; min-width:220px; }
+        .search-box .layui-input { width:100%; max-width:380px; }
+        .thumbnail { width:48px; height:48px; object-fit:cover; border-radius:4px; cursor:pointer; }
+        .ellipsis { max-width:280px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:inline-block; vertical-align:middle; }
+        @media (max-width:720px) { .ellipsis { max-width:160px; } .tool-bar { gap:6px; } }
+        .img-preview { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+        .img-preview img { width:80px; height:80px; object-fit:cover; border:1px solid #eee; border-radius:4px; padding:2px; cursor:pointer; }
+        .actions-group { display:flex; gap:8px; align-items:center; }
+        .more-ops { cursor:pointer; color:#666; font-size:12px; padding:6px 10px; border-radius:4px; border:1px solid #e6e6e6; background:#fff; }
+
+        /* 检查项选择区域样式 */
+        .items-selector-container { display: flex; gap: 16px; margin-top: 12px; }
+        .items-panel { flex: 1; border: 1px solid #e6e6e6; border-radius: 4px; background: #fff; min-height: 320px; }
+        .panel-header { padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e6e6e6; font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
+        .panel-body { max-height: 280px; overflow-y: auto; }
+        .item-list { list-style: none; margin: 0; padding: 0; }
+        .item-entry { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 12px; }
+        .item-entry:hover { background: #f8f9fa; }
+        .item-entry.selected { background: #e6f7ff; border-left: 3px solid #1890ff; }
+        .item-entry.in-use { background: #f6ffed; border-left: 3px solid #52c41a; }
+        .item-entry .item-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+        .item-entry .item-info { flex: 1; min-width: 0; }
+        .item-entry .item-name { font-weight: 500; color: #333; margin-bottom: 4px; }
+        .item-entry .item-desc { font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-entry .item-point { color: #1890ff; font-size: 12px; flex-shrink: 0; }
+        .search-items { padding: 8px 16px; border-bottom: 1px solid #f0f0f0; }
+        .search-items input { width: 100%; border: 1px solid #d9d9d9; border-radius: 4px; padding: 6px 10px; font-size: 12px; }
+        .panel-footer { padding: 8px 16px; background: #fafafa; border-top: 1px solid #e6e6e6; font-size: 12px; color: #666; }
+
+        @media (max-width: 768px) {
+            .items-selector-container { flex-direction: column; }
+            .items-panel { min-height: 240px; }
+            .panel-body { max-height: 200px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="tool-bar">
+    <div class="search-box">
+        <input type="text" id="searchName" placeholder="按套餐名称搜索，按回车快速搜索" class="layui-input">
+        <select id="filterStatus" class="layui-select" style="width:140px;">
+            <option value="">全部状态</option>
+            <option value="1">上架</option>
+            <option value="0">下架</option>
+        </select>
+        <button class="layui-btn" id="btnSearch"><i class="layui-icon">&#xe615;</i> 搜索</button>
+    </div>
+
+    <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+        <div class="actions-group">
+            <button class="layui-btn layui-btn-normal" id="btnAdd">新增套餐</button>
+            <button class="layui-btn layui-btn-warm" id="btnBatchEnable">批量上架</button>
+            <button class="layui-btn layui-btn-danger" id="btnBatchDelete">批量删除</button>
+            <div class="more-ops" id="btnMore">更多</div>
+        </div>
+    </div>
+</div>
+
+<table id="projectTable" lay-filter="projectTableFilter"></table>
+
+<!-- 操作模板 -->
+<script type="text/html" id="toolbarTpl">
+    <div style="display:flex;gap:6px;justify-content:center;align-items:center;">
+        <a class="layui-btn layui-btn-xs" lay-event="detail">详情</a>
+        <a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+        {{#  if(d.status==1){ }}
+        <a class="layui-btn layui-btn-warm layui-btn-xs" lay-event="toggle">下架</a>
+        {{#  } else { }}
+        <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="toggle">上架</a>
+        {{#  } }}
+    </div>
+</script>
+
+<!-- 详情模板 -->
+<script type="text/html" id="detailTpl">
+    <div style="padding: 20px; max-width: 800px;">
+        <div style="margin-bottom: 24px;">
+            <h3 style="color: #333; margin-bottom: 16px;">{{ d.name || '未命名套餐' }}</h3>
+            <div style="display: flex; gap: 32px; margin-bottom: 20px;">
+                <div><span style="color: #666;">价格：</span><span style="color: #f56c6c; font-size: 16px; font-weight: 500;">¥{{ d.price || 0 }}</span></div>
+                <div><span style="color: #666;">库存：</span><span style="color: #409eff;">{{ d.count || 0 }}</span></div>
+                <div><span style="color: #666;">状态：</span><span style="color {{ d.status == 1 ? '#67c23a' : '#909399' }};">{{ d.status == 1 ? '上架' : '下架' }}</span></div>
+            </div>
+            {{# if(d.pic) { }}
+            <div style="margin-bottom: 20px;">
+                <div style="color: #666; margin-bottom: 8px;">封面图片：</div>
+                <img src="{{ d.pic }}" style="max-width: 200px; max-height: 150px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="layer.photos({photos: {data: [{src: '{{ d.pic }}'}]}, anim: 5});">
+            </div>
+            {{# } }}
+            {{# if(d.info) { }}
+            <div style="margin-bottom: 20px;">
+                <div style="color: #666; margin-bottom: 8px;">描述：</div>
+                <div style="color: #333; line-height: 1.6;">{{ d.info }}</div>
+            </div>
+            {{# } }}
+        </div>
+
+        <div>
+            <h4 style="color: #333; margin-bottom: 16px; border-bottom: 2px solid #409eff; padding-bottom: 8px;">包含的检查项</h4>
+            <div id="detailItemsList" style="min-height: 100px;">
+                <div style="text-align: center; color: #999; padding: 40px;">加载中...</div>
+            </div>
+        </div>
+    </div>
+</script>
+
+<!-- 表单弹窗 DOM（隐藏） -->
+<div id="projectFormBox" style="display:none; padding:18px; max-width:960px; box-sizing:border-box;">
+    <form class="layui-form" lay-filter="projectForm">
+        <input type="hidden" name="id" />
+
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">套餐名称</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <input type="text" name="name" required lay-verify="required|len100" placeholder="请输入套餐名称" class="layui-input">
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">价格（元）</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <input type="number" name="price" required lay-verify="required|price" placeholder="0.00" class="layui-input" step="0.01" min="0">
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">库存</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <input type="number" name="count" required lay-verify="required|int0" placeholder="库存数量" class="layui-input" min="0">
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">状态</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <select name="status">
+                    <option value="1">上架</option>
+                    <option value="0">下架</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px;">检查项选择</label>
+            <div style="margin-left:120px;">
+                <div class="items-selector-container">
+                    <div class="items-panel">
+                        <div class="panel-header">
+                            可选检查项
+                            <span class="panel-count" id="availableCount">0</span>
+                        </div>
+                        <div class="search-items">
+                            <input type="text" id="searchAvailable" placeholder="搜索检查项...">
+                        </div>
+                        <div class="panel-body">
+                            <ul class="item-list" id="availableItems"></ul>
+                        </div>
+                        <div class="panel-footer">
+                            点击检查项添加到已选列表
+                        </div>
+                    </div>
+
+                    <div class="items-panel">
+                        <div class="panel-header">
+                            已选检查项
+                            <span class="panel-count" id="selectedCount">0</span>
+                        </div>
+                        <div class="panel-body">
+                            <ul class="item-list" id="selectedItems"></ul>
+                        </div>
+                        <div class="panel-footer">
+                            点击检查项可移除
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="layui-form-item layui-form-text">
+            <label class="layui-form-label" style="width:110px">描述</label>
+            <div class="layui-input-block" style="margin-left:120px;">
+                <textarea name="info" placeholder="请输入描述" class="layui-textarea" maxlength="500" style="height:120px;"></textarea>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label" style="width:110px">封面图片</label>
+            <div style="margin-left:120px;">
+                <button type="button" class="layui-btn" id="btnUpload">
+                    <i class="layui-icon">&#xe67c;</i> 上传图片
+                </button>
+                <button type="button" class="layui-btn layui-btn-primary" id="btnRemovePic">移除</button>
+                <div class="img-preview" id="imgPreview" aria-hidden="true"></div>
+                <input type="hidden" name="pic" />
+            </div>
+        </div>
+
+        <div style="text-align:right; margin-top:12px;">
+            <button type="button" class="layui-btn layui-btn-primary" id="btnCancelForm">取消</button>
+            <button class="layui-btn layui-btn-normal" lay-submit lay-filter="submitProject" id="btnSaveForm">保存</button>
+        </div>
+    </form>
+</div>
+
+<script src="../../layui/layui.js"></script>
+<script>
+    layui.use(['table','layer','form','upload','jquery','laytpl'], function(){
+        var table = layui.table, layer = layui.layer, form = layui.form, upload = layui.upload, $ = layui.$, laytpl = layui.laytpl;
+
+        // API 统一配置
+        var API = {
+            list: '/project/list',
+            get: '/project/',
+            create: '/project',
+            update: '/project/',
+            remove: '/project/',
+            batchDelete: '/project/batch-delete',
+            batchStatus: '/project/batch-status',
+            items: '/api/items',
+            upload: '/project/upload',
+            updateStatus: '/project/'  // 保留原路径，实际请求体模式通过修改后端实现的约定
+        };
+
+        // 通用请求封装
+        function request(options){
+            var opts = $.extend(true, {
+                method: 'GET',
+                contentType: 'application/json',
+                dataType: 'json'
+            }, options);
+
+            var ajaxOpt = {
+                url: opts.url,
+                type: opts.method,
+                dataType: opts.dataType,
+                contentType: opts.contentType,
+                success: function(res){ opts.success && opts.success(res); },
+                error: function(xhr){ opts.error && opts.error(xhr); }
+            };
+
+            if(opts.contentType === 'application/json' && opts.data && typeof opts.data !== 'string'){
+                ajaxOpt.data = JSON.stringify(opts.data);
+            } else {
+                ajaxOpt.data = opts.data;
+            }
+
+            return $.ajax(ajaxOpt);
+        }
+
+        // 防抖
+        function debounce(fn, wait){
+            var t;
+            return function(){
+                var ctx = this, args = arguments;
+                clearTimeout(t);
+                t = setTimeout(function(){ fn.apply(ctx, args); }, wait);
+            };
+        }
+
+        // 全局变量存储检查项数据
+        var allItemsData = [];
+        var selectedItemsData = [];
+
+        // 表格渲染
+        var tableId = 'projectTable';
+        var tableIns = table.render({
+            elem: '#'+tableId,
+            cols: [[
+                {type:'checkbox', fixed:'left'},
+                {field:'id', title:'ID', width:70, sort:true},
+                {field:'name', title:'套餐名称', minWidth:180, templet:function(d){ return '<span class="ellipsis" title="'+ (d.name||'') +'">' + (d.name||'') + '</span>'; }},
+                {field:'info', title:'描述', minWidth:200, templet:function(d){ var txt = d.info||''; return '<span class="ellipsis" title="'+ txt +'">' + txt + '</span>'; }},
+                {field:'price', title:'价格(元)', width:110, align:'right', templet:function(d){ return (d.price!=null? Number(d.price).toFixed(2):'-'); }},
+                {field:'count', title:'库存', width:100, align:'center'},
+                // {field:'itemCount', title:'检查项数', width:110, align:'center', templet:function(d){ return (d.item_ids? d.item_ids.split(',').filter(Boolean).length : 0); }},
+                {field:'pic', title:'图片', width:100, align:'center', templet:function(d){
+                        if(d.pic){
+                            return '<img class="thumbnail" data-src="'+ d.pic +'" src="'+ d.pic +'" alt="pic" role="button" tabindex="0">';
+                        }
+                        return '-';
+                    }},
+                {field:'status', title:'状态', width:100, align:'center', templet:function(d){ if(d.status==1) return '<span style="color:#009688">上架</span>'; return '<span style="color:#999">下架</span>'; }},
+                {title:'操作', toolbar:'#toolbarTpl', width:240, align:'center'}
+            ]],
+            page: true,
+            limit: 10,
+            height: 'full-160',
+            url: API.list,
+            method: 'get',
+            parseData: function(res){
+                if(res && res.code === 0 && Array.isArray(res.data)){
+                    return { "code": 0, "msg": res.msg||'', "count": res.count||res.data.length||0, "data": res.data };
+                }
+                return { "code": res && res.code || 1, "msg": res && res.msg || '加载失败', "count": 0, "data": [] };
+            },
+            request: { pageName: 'page', limitName: 'size' },
+            where: {}
+        });
+
+        // 图片预览
+        $('body').on('click', '.thumbnail', function(){
+            var src = $(this).attr('data-src') || $(this).attr('src');
+            layer.photos({
+                photos: { title: '图片预览', data: [{src: src}] },
+                shadeClose: true, anim: 5
+            });
+        });
+
+        // 搜索
+        var doSearch = debounce(function(){
+            table.reload(tableId, { where: { name: $('#searchName').val(), status: $('#filterStatus').val() }, page: { curr: 1 } });
+        }, 300);
+
+        $('#btnSearch').on('click', doSearch);
+        $('#searchName').on('keyup', function(e){ if(e.key === 'Enter' || e.keyCode === 13) doSearch(); });
+
+        // 操作按钮
+        $('#btnAdd').on('click', function(){ openForm(); });
+        $('#btnMore').on('click', function(){
+            layer.open({ type:1, title:'更多操作', area:['320px','240px'], content: '<div style="padding:12px;">' +
+                    '<button class="layui-btn layui-btn-sm" id="exportBtn">导出CSV</button> ' +
+                    '<button class="layui-btn layui-btn-sm layui-btn-primary" id="refreshBtn">刷新缓存</button>' +
+                    '</div>' });
+        });
+
+        $('#btnBatchEnable').on('click', function(){
+            var data = table.checkStatus(tableId).data;
+            if(!data || data.length===0){ layer.msg('请选择要操作的记录'); return; }
+            var ids = data.map(function(i){ return i.id; });
+            var shown = ids.slice(0,8).join(',') + (ids.length>8? ' ...共'+ids.length+'项' : '');
+            layer.confirm('确认将选中套餐上架？<div style="margin-top:8px;color:#666;">'+ shown +'</div>', function(idx){
+                request({ url: API.batchStatus, method: 'POST', contentType:'application/json', data: { ids: ids, status:1 } })
+                    .done(function(res){ if(res.code===0){ layer.msg('操作成功'); table.reload(tableId); } else { layer.msg(res.msg||'失败'); } })
+                    .fail(function(){ layer.msg('网络错误'); });
+                layer.close(idx);
+            });
+        });
+
+        $('#btnBatchDelete').on('click', function(){
+            var data = table.checkStatus(tableId).data;
+            if(!data || data.length===0){ layer.msg('请选择要删除的记录'); return; }
+            var ids = data.map(function(i){ return i.id; });
+            var shown = ids.slice(0,8).join(',') + (ids.length>8? ' ...共'+ids.length+'项' : '');
+            layer.confirm('确认删除选中套餐？（软删）<div style="margin-top:8px;color:#666;">'+ shown +'</div>', function(idx){
+                request({ url: API.batchDelete, method: 'POST', contentType:'application/json', data: { ids: ids } })
+                    .done(function(res){ if(res.code===0){ layer.msg('删除成功'); table.reload(tableId); } else { layer.msg(res.msg||'失败'); } })
+                    .fail(function(){ layer.msg('网络错误'); });
+                layer.close(idx);
+            });
+        });
+
+        // 检查项渲染函数
+        function renderItemEntry(item, isSelected) {
+            var className = isSelected ? 'item-entry selected in-use' : 'item-entry';
+            var thumbHtml = item.pic ?
+                '<img src="' + item.pic + '" class="item-thumb" alt="图片">' :
+                '<div class="item-thumb" style="background:#f5f5f5;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">无图</div>';
+
+            return '<li class="' + className + '" data-id="' + item.id + '">' +
+                thumbHtml +
+                '<div class="item-info">' +
+                '<div class="item-name">' + (item.name || '未命名') + '</div>' +
+                '<div class="item-desc">' + (item.info || '暂无描述') + '</div>' +
+                '</div>' +
+                '<div class="item-point">' + (item.point || 0) + '分</div>' +
+                '</li>';
+        }
+
+        // 渲染可选检查项
+        function renderAvailableItems(searchText) {
+            var filteredItems = allItemsData.filter(function(item) {
+                var isNotSelected = !selectedItemsData.some(function(sel) { return String(sel.id) === String(item.id); });
+                var matchSearch = !searchText || (item.name && item.name.toLowerCase().includes(searchText.toLowerCase()));
+                return isNotSelected && matchSearch;
+            });
+
+            var html = '';
+            if (filteredItems.length === 0) {
+                html = '<li style="text-align:center;color:#999;padding:40px;">暂无可选项目</li>';
+            } else {
+                filteredItems.forEach(function(item) {
+                    html += renderItemEntry(item, false);
+                });
+            }
+
+            $('#availableItems').html(html);
+            $('#availableCount').text(filteredItems.length);
+        }
+
+        // 渲染已选检查项
+        function renderSelectedItems() {
+            var html = '';
+            if (selectedItemsData.length === 0) {
+                html = '<li style="text-align:center;color:#999;padding:40px;">暂无已选项目</li>';
+            } else {
+                selectedItemsData.forEach(function(item) {
+                    html += renderItemEntry(item, true);
+                });
+            }
+
+            $('#selectedItems').html(html);
+            $('#selectedCount').text(selectedItemsData.length);
+        }
+
+        // 加载所有检查项
+        function loadAllItems() {
+            return request({ url: API.items + '?page=1&size=1000', method: 'GET' })
+                .done(function(res) {
+                    allItemsData = [];
+                    if(res && res.code === 0) {
+                        if(Array.isArray(res.data)) {
+                            allItemsData = res.data;
+                        } else if(res.data && Array.isArray(res.data.records)) {
+                            allItemsData = res.data.records;
+                        } else if(res.data && Array.isArray(res.data.data)) {
+                            allItemsData = res.data.data;
+                        }
+                    }
+                    console.log('加载的所有检查项:', allItemsData);
+                })
+                .fail(function() {
+                    layer.msg('加载检查项失败');
+                    console.error('加载检查项失败');
+                });
+        }
+
+        // 检查项点击事件
+        $(document).on('click', '#availableItems .item-entry', function() {
+            var id = $(this).data('id');
+            var item = allItemsData.find(function(item) { return String(item.id) === String(id); });
+            if (item && !selectedItemsData.some(function(sel) { return String(sel.id) === String(id); })) {
+                selectedItemsData.push(item);
+                console.log('添加检查项:', item, '当前已选:', selectedItemsData.length);
+                renderAvailableItems($('#searchAvailable').val());
+                renderSelectedItems();
+            }
+        });
+
+        $(document).on('click', '#selectedItems .item-entry', function() {
+            var id = $(this).data('id');
+            selectedItemsData = selectedItemsData.filter(function(item) { return String(item.id) !== String(id); });
+            console.log('移除检查项 ID:', id, '当前已选:', selectedItemsData.length);
+            renderAvailableItems($('#searchAvailable').val());
+            renderSelectedItems();
+        });
+
+        // 搜索可选项
+        $(document).on('input', '#searchAvailable', debounce(function() {
+            renderAvailableItems($(this).val());
+        }, 300));
+
+        // 表格操作事件
+        table.on('tool(projectTableFilter)', function(obj){
+            var data = obj.data, event = obj.event;
+            if(event === 'edit'){ openForm(data.id); }
+            else if(event === 'detail'){ openDetail(data); }
+            else if(event === 'del'){
+                layer.confirm('确认删除该套餐？', function(idx){
+                    request({ url: API.remove + data.id, method: 'DELETE' })
+                        .done(function(res){ if(res.code===0){ layer.msg('删除成功'); table.reload(tableId); } else layer.msg(res.msg||'删除失败'); })
+                        .fail(function(){ layer.msg('网络错误'); });
+                    layer.close(idx);
+                });
+            } else if(event === 'toggle'){
+                // 根据前端约定：1 上架，0 下架
+                var toStatus = data.status==1 ? 0 : 1;
+                // 直接以 JSON 体方式发送
+                layer.confirm('确认更改状态？', function(idx){
+                    // 使用 JSON 请求体的方式发送状态，URL 仍为 /project/{id}/status
+                    request({
+                        url: API.updateStatus + data.id + '/status',
+                        method: 'POST',
+                        contentType:'application/json',
+                        data: { status: toStatus }
+                    })
+                        .done(function(res){
+                            if(res && res.code===0){
+                                layer.msg('操作成功');
+                                table.reload(tableId);
+                            } else {
+                                layer.msg((res && res.msg) || '失败');
+                            }
+                        })
+                        .fail(function(){ layer.msg('网络错误'); });
+                    layer.close(idx);
+                });
+            }
+        });
+
+        // 打开详情窗口
+        function openDetail(data) {
+            var detailTpl = $('#detailTpl').html();
+            var compiled = laytpl(detailTpl);
+            var content = compiled.render(data);
+
+            var detailIndex = layer.open({
+                type: 1,
+                title: '套餐详情',
+                area: ['90%', '80%'],
+                maxWidth: '800px',
+                content: content,
+                success: function() {
+                    // 加载包含的检查项详情
+                    loadDetailItems(data.id);
+                }
+            });
+        }
+
+        // 加载详情页面的检查项
+        function loadDetailItems(projectId) {
+            request({ url: API.get + projectId + '/items', method: 'GET' })
+                .done(function(res) {
+                    console.log('详情页检查项API返回:', res);
+                    if(res && res.code === 0 && res.data) {
+                        var items = [];
+
+                        // 根据实际返回的数据结构解析
+                        var dataArray = Array.isArray(res.data) ? res.data : [res.data];
+                        if(dataArray.length > 0 && dataArray[0].selected) {
+                            items = dataArray[0].selected;
+                        }
+
+                        renderDetailItemsList(items);
+                    } else {
+                        $('#detailItemsList').html('<div style="text-align:center;color:#999;padding:40px;">加载失败</div>');
+                    }
+                })
+                .fail(function() {
+                    $('#detailItemsList').html('<div style="text-align:center;color:#999;padding:40px;">加载失败</div>');
+                });
+        }
+
+        // 渲染详情页检查项列表
+        function renderDetailItemsList(items) {
+            var html = '';
+            if(items.length === 0) {
+                html = '<div style="text-align:center;color:#999;padding:40px;">暂无检查项</div>';
+            } else {
+                html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">';
+                items.forEach(function(item) {
+                    var thumbHtml = item.pic ?
+                        '<img src="' + item.pic + '" style="width:60px;height:60px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="layer.photos({photos: {data: [{src: \'' + item.pic + '\'}]}, anim: 5});">' :
+                        '<div style="width:60px;height:60px;background:#f5f5f5;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#999;font-size:12px;">无图</div>';
+
+                    html += '<div style="background:#fff;border:1px solid #e6e6e6;border-radius:6px;padding:16px;display:flex;gap:12px;align-items:flex-start;">' +
+                        thumbHtml +
+                        '<div style="flex:1;min-width:0;">' +
+                        '<h4 style="margin:0 0 8px 0;color:#333;font-size:14px;font-weight:500;">' + (item.name || '未命名') + '</h4>' +
+                        '<div style="color:#666;font-size:12px;margin-bottom:8px;line-height:1.4;">' + (item.info || '暂无描述') + '</div>' +
+                        '<div style="color:#1890ff;font-size:12px;font-weight:500;">' + (item.point || 0) + ' 分</div>' +
+                        '</div>' +
+                        '</div>';
+                });
+                html += '</div>';
+            }
+            $('#detailItemsList').html(html);
+        }
+
+        // 打开表单
+        var formIndex;
+        function openForm(id) {
+            // 重置表单和全局变量
+            form.val('projectForm', { id:'', name:'', price:'', count:'', status:1, info:'', pic:'' });
+            $('#imgPreview').empty();
+            $('#btnSaveForm').removeClass('layui-btn-disabled').prop('disabled', false);
+            selectedItemsData = [];
+
+            formIndex = layer.open({
+                type: 1,
+                title: id ? '编辑套餐' : '新增套餐',
+                area: ['95%', '90%'],
+                maxWidth: '960px',
+                content: $('#projectFormBox'),
+                success: function(){
+                    // 先加载所有检查项
+                    loadAllItems().done(function() {
+                        console.log('所有检查项加载完成:', allItemsData.length);
+
+                        // 渲染初始状态
+                        renderAvailableItems();
+                        renderSelectedItems();
+
+                        // 如果是编辑模式，再加载套餐详情
+                        if(id) {
+                            // 延迟一下确保DOM渲染完成
+                            setTimeout(function() {
+                                loadProjectDetails(id);
+                            }, 100);
+                        }
+                    }).fail(function() {
+                        layer.msg('加载检查项数据失败');
+                    });
+                },
+                end: function() {
+                    selectedItemsData = [];
+                }
+            });
+        }
+
+        // 加载套餐详情
+        function loadProjectDetails(id) {
+            // 加载基础信息
+            request({ url: API.get + id, method: 'GET' })
+                .done(function(res) {
+                    if(res && res.code === 0 && res.data) {
+                        var payload = Array.isArray(res.data) ? res.data[0] : res.data;
+                        form.val('projectForm', {
+                            id: payload.id,
+                            name: payload.name,
+                            price: payload.price,
+                            count: payload.count,
+                            status: payload.status,
+                            info: payload.info,
+                            pic: payload.pic
+                        });
+                        if(payload.pic) {
+                            $('input[name=pic]').val(payload.pic);
+                            $('#imgPreview').html('<img src="' + payload.pic + '">');
+                        }
+                    }
+                })
+                .fail(function() {
+                    console.warn('加载套餐基础信息失败');
+                });
+
+            // 加载已选检查项 - 修复数据解析逻辑
+            request({ url: API.get + id + '/items', method: 'GET' })
+                .done(function(res) {
+
+                    if(res && res.code === 0 && res.data) {
+                        var items = [];
+
+                        // 修复：正确解析数据结构 - data是数组，取第一个元素的selected字段
+                        if(Array.isArray(res.data) && res.data.length > 0) {
+                            var dataItem = res.data[0];
+                            if(dataItem.selected && Array.isArray(dataItem.selected)) {
+                                items = dataItem.selected;
+                            }
+                        }
+                        // 备用解析方式
+                        else if(res.data.selected && Array.isArray(res.data.selected)) {
+                            items = res.data.selected;
+                        }
+                        else if(Array.isArray(res.data)) {
+                            items = res.data;
+                        }
+
+
+                        // 如果仍然没有获取到已选项，尝试从基础信息的item_ids字段解析
+                        if(items.length === 0) {
+                            tryLoadItemsFromBasicInfo(id);
+                        } else {
+                            selectedItemsData = items;
+                            console.log('设置已选检查项数据:', selectedItemsData.length);
+                            renderAvailableItems();
+                            renderSelectedItems();
+                        }
+                    } else {
+                        console.warn('加载已选检查项失败:', res && res.msg);
+                        tryLoadItemsFromBasicInfo(id);
+                    }
+                })
+                .fail(function() {
+                    console.warn('请求已选检查项失败');
+                    tryLoadItemsFromBasicInfo(id);
+                });
+        }
+
+        // 备用方法：从基础信息的item_ids解析已选项
+        function tryLoadItemsFromBasicInfo(id) {
+            request({ url: API.get + id, method: 'GET' })
+                .done(function(res) {
+                    if(res && res.code === 0 && res.data) {
+                        var payload = Array.isArray(res.data) ? res.data[0] : res.data;
+                        if(payload.item_ids) {
+                            var itemIds = payload.item_ids.split(',').filter(Boolean);
+                            var items = allItemsData.filter(function(item) {
+                                return itemIds.includes(String(item.id));
+                            });
+                            selectedItemsData = items;
+                            renderAvailableItems();
+                            renderSelectedItems();
+                        }
+                    }
+                });
+        }
+
+        // 上传图片
+        var uploadInst = upload.render({
+            elem: '#btnUpload', url: API.upload, accept:'images', size:2048,
+            before: function(obj){
+                obj.preview(function(index, file, result){
+                    $('#imgPreview').html('<img src="'+ result +'">');
+                });
+            },
+            done: function(res){
+                if(res && res.code===0){
+                    var url = res.url || (res.data && (res.data.url || res.data.path)) || '';
+                    $('input[name=pic]').val(url);
+                    $('#imgPreview').html('<img src="'+ url +'">');
+                    layer.msg('上传成功',{icon:1});
+                } else {
+                    layer.msg((res && res.msg) || '上传失败',{icon:2});
+                }
+            },
+            error: function(){ layer.msg('上传错误',{icon:2}); }
+        });
+
+        $('#btnRemovePic').on('click', function(){
+            $('input[name=pic]').val('');
+            $('#imgPreview').empty();
+        });
+
+        // 表单校验
+        form.verify({
+            len100: function(v){ if(v && v.length>100) return '长度不得超过100字符'; },
+            price: function(v){ if(v === '' || isNaN(v) || Number(v) < 0) return '价格格式不正确'; },
+            int0: function(v){ if(!/^\d+$/.test(v)) return '请输入非负整数'; }
+        });
+
+        // 表单提交 - 添加详细调试信息
+        form.on('submit(submitProject)', function(fd){
+
+            var $save = $('#btnSaveForm');
+            var data = fd.field;
+            var isEdit = data.id && data.id.trim() !== '';
+
+            // 处理检查项ID
+            if(selectedItemsData.length > 0) {
+                data.itemIds = selectedItemsData.map(function(item) { return item.id; }).join(',');
+            } else {
+                data.itemIds = '';
+            }
+
+            var url = isEdit ? (API.update + data.id) : API.create;
+            var method = isEdit ? 'PUT' : 'POST';
+
+            $save.addClass('layui-btn-disabled').prop('disabled', true);
+
+            request({
+                url: url,
+                method: method,
+                contentType:'application/json',
+                data: data
+            })
+                .done(function(res){
+                    if(res && res.code===0){
+                        layer.msg('保存成功',{icon:1});
+                        layer.close(formIndex);
+                        table.reload(tableId);
+                        console.log('✓ 保存成功');
+                    } else {
+                        layer.msg((res && res.msg) || '保存失败',{icon:2});
+                    }
+                })
+                .fail(function(xhr, status, error){
+                    layer.msg('网络错误',{icon:2});
+                })
+                .always(function(){
+                    $save.removeClass('layui-btn-disabled').prop('disabled', false);
+                });
+
+            return false;
+        });
+
+        $('#btnCancelForm').on('click', function(){ layer.close(formIndex); });
+
+    });
+</script>
+</body>
+</html>

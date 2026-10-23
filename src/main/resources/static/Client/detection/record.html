@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>我的预约记录 - 管理系统</title>
+
+    <link href="../../layui/css/layui.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
+
+    <style>
+        :root{
+            --bg:#f6f7fb;
+            --card:#ffffff;
+            --muted:#8b94a6;
+            --primary:#3b82f6;
+            --success:#16a34a;
+            --warning:#f59e0b;
+            --danger:#ef4444;
+            --glass: rgba(255,255,255,0.6);
+            --radius:14px;
+        }
+        html,body{height:100%;}
+        body {
+            margin:0;
+            font-family: Inter, "PingFang SC","Microsoft YaHei",Arial,Helvetica,sans-serif;
+            background: linear-gradient(180deg, #f6f8fc 0%, var(--bg) 100%);
+            -webkit-font-smoothing:antialiased;
+            padding-bottom: 40px;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            backdrop-filter: blur(6px);
+            background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.6));
+            box-shadow: 0 6px 18px rgba(37,52,99,0.06);
+            padding:10px 12px;
+            display:flex;
+            gap:10px;
+            align-items:center;
+            border-bottom: 1px solid rgba(20,30,60,0.04);
+        }
+        .top-left { display:flex; gap:8px; align-items:center; }
+        .top-title { font-weight:600; color:#111827; margin-left:6px; }
+        .btn { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; background:var(--card); box-shadow: 0 1px 4px rgba(16,24,40,0.04); border: none; color:#111827; cursor:pointer; font-size:14px; }
+        .btn.icon { padding:8px; width:40px; justify-content:center; }
+        .btn.ghost { background:transparent; box-shadow:none; }
+
+        .container { max-width:980px; margin:12px auto; padding:0 12px; }
+
+        .table-wrap { display:none; }
+        @media(min-width:801px){
+            .table-wrap { display:block; margin-bottom:12px; background:var(--card); padding:12px; border-radius:12px; box-shadow:0 4px 18px rgba(16,24,40,0.05); }
+            .card-list { display:none; }
+        }
+
+        .card-list { display:grid; gap:12px; grid-template-columns: 1fr; margin-top:6px; margin-bottom:6px; }
+        .card { background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.96)); border-radius: var(--radius); padding:12px; box-shadow: 0 6px 20px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.6); border: 1px solid rgba(16,24,40,0.03); display:flex; gap:12px; align-items:flex-start; }
+        .avatar { min-width:56px; height:56px; border-radius:12px; background: linear-gradient(135deg,#eef2ff,#e0f2fe); display:flex; align-items:center; justify-content:center; color:var(--primary); font-weight:700; font-size:16px; box-shadow: 0 4px 10px rgba(59,130,246,0.08); }
+        .card-body { flex:1; min-width:0; }
+        .meta { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+        .meta .left { color:var(--muted); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .meta .right { font-size:13px; color:var(--muted); }
+        .title { font-size:15px; font-weight:600; color:#0f172a; margin-bottom:6px; display:block; word-break:break-word; }
+        .desc { color:var(--muted); font-size:13px; margin-bottom:8px; line-height:1.4; }
+
+        .status { display:inline-flex; gap:8px; align-items:center; font-size:13px; }
+        .badge { padding:6px 10px; border-radius:999px; color:white; font-size:13px; font-weight:600; display:inline-block; }
+        .badge.pending { background: linear-gradient(90deg,#6b7280,#374151); }
+        .badge.confirm { background: linear-gradient(90deg,#34d399,#059669); }
+        .badge.cancel { background: linear-gradient(90deg,#f87171,#ef4444); }
+
+        .card-foot { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+        .action { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; background:rgba(15,23,42,0.03); font-size:14px; cursor:pointer; }
+        .action.danger { background: linear-gradient(90deg, rgba(254,202,202,0.12), rgba(255,230,230,0.04)); color:var(--danger); }
+
+        .empty { text-align:center; padding:36px 16px; background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.5)); border-radius:12px; color:var(--muted); margin-top:12px; box-shadow: 0 6px 20px rgba(15,23,42,0.03); }
+
+        .more-wrap { text-align:center; margin-top:14px; }
+        .more-btn { padding:8px 14px; border-radius:10px; background:var(--primary); color:#fff; border:none; font-weight:600; cursor:pointer; }
+
+        .skeleton { animation: pulse 1.2s infinite; background:linear-gradient(90deg,#f3f4f6,#e5e7eb,#f3f4f6); border-radius:10px; height:86px; }
+        @keyframes pulse { 0%{opacity:1}50%{opacity:0.6}100%{opacity:1} }
+
+        .layui-table { border-radius:10px; overflow:hidden; }
+
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            background: var(--card);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            max-width: 400px;
+        }
+        .filter-select {
+            width: 120px;
+        }
+
+        /* 内嵌模态框样式（替代 layui layer） */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 40;
+        }
+        .modal {
+            width: min(720px, 92vw);
+            max-height: 78vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+            padding: 0;
+        }
+        .modal-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eee;
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        .modal-title { font-weight: 600; font-size: 16px; }
+        .modal-body { padding: 16px; }
+        .modal-footer { padding: 12px 16px; text-align: right; border-top: 1px solid #eee; }
+        .close-btn { border: none; background: transparent; font-size: 18px; cursor: pointer; line-height: 1; display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; color:#374151; }
+        /* 将关闭按钮居中对齐文本 */
+        .close-btn { display:inline-flex; align-items:center; justify-content:center; text-align:center; }
+
+        .detail-row {
+            display: flex;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 12px;
+        }
+        .detail-label {
+            width: 110px;
+            font-weight: bold;
+            color: var(--muted);
+        }
+        .detail-value { flex: 1; }
+
+        .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+        @media (max-width: 600px){
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        .layui-form-item { display:flex; flex-direction:column; margin-bottom:12px; }
+        .layui-form-label { margin-bottom:6px; font-weight:600; color:#374151; }
+        .layui-input, .layui-textarea, input, textarea, select { width: 100%; padding: 8px 10px; border: 1px solid #d2d6de; border-radius:6px; font-size:14px; }
+        .layui-btn { padding:8px 14px; border-radius:6px; border:1px solid transparent; cursor:pointer; }
+        .layui-btn-primary { background: var(--primary); color:#fff; }
+        .layui-btn { background:#f3f4f6; color:#111; }
+        .layui-btn-small { padding:6px 10px; font-size:12px; }
+        .layui-btn-danger { background: #f87171; color:#fff; }
+        .layui-btn-normal { background: #3b82f6; color:#fff; }
+
+        @media (max-width: 600px){
+            .modal { width: 92vw; }
+        }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <div class="top-left" style="display:flex;align-items:center;gap:8px;">
+        <div class="avatar" style="width:32px;height:32px;border-radius:6px;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;">预约</div>
+        <div class="top-title" style="font-size:14px;color:#111;">我的预约记录</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn" id="btnRefresh" title="刷新"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
+        <button class="btn" id="btnAdd" title="新增预约"><i class="bi bi-plus-circle"></i> 新增预约</button>
+    </div>
+</div>
+
+<div class="container">
+    <!-- 搜索和筛选区域 -->
+    <div class="search-bar">
+        <div class="search-input">
+            <input type="text" id="searchInput" placeholder="搜索预约日期、备注..." class="layui-input">
+        </div>
+        <div class="filter-select">
+            <select id="statusFilter" class="layui-select">
+                <option value="">全部状态</option>
+                <option value="0">未处理</option>
+                <option value="1">已确认</option>
+                <option value="2">已取消</option>
+            </select>
+        </div>
+        <button class="layui-btn layui-btn-primary" id="btnSearch"><i class="bi bi-search"></i> 搜索</button>
+    </div>
+
+    <!-- 桌面表格 -->
+    <div class="table-wrap" id="tableWrap">
+        <table class="layui-table" lay-size="sm" style="margin:0;">
+            <colgroup>
+                <col width="60">
+                <col width="120">
+                <col width="120">
+                <col width="120">
+                <col width="100">
+                <col width="180">
+                <col width="120">
+            </colgroup>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>提交时间</th>
+                <th>预约日期</th>
+                <th>预约时间</th>
+                <th>客户ID</th>
+                <th>项目ID</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- 卡片列表（移动优先） -->
+    <div id="cardList" class="card-list"></div>
+
+    <!-- 空状态 -->
+    <div id="empty" class="empty" style="display:none;">
+        <i class="bi bi-calendar-x" style="font-size: 3rem; margin-bottom: 15px;"></i>
+        <div style="font-size: 16px; margin-bottom: 15px;">暂无预约记录</div>
+        <div>
+            <button class="layui-btn layui-btn-normal" id="goSubmit">创建新预约</button>
+        </div>
+    </div>
+
+    <!-- 加载更多 / 分页 -->
+    <div class="more-wrap" id="moreWrap" style="display:none;">
+        <button class="more-btn" id="btnMore">加载更多</button>
+    </div>
+</div>
+
+<!-- 预约详情模态框（内嵌式） -->
+<div class="overlay" id="detailOverlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-label="预约详情">
+        <div class="modal-header">
+            <span class="modal-title">预约详情</span>
+            <button class="close-btn" id="closeDetailOverlay" aria-label="关闭" style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;line-height:1;">
+                ✕
+            </button>
+        </div>
+        <div class="modal-body" id="detailModalBody">
+            <div class="detail-row">
+                <div class="detail-label">ID：</div>
+                <div class="detail-value" id="detailId"></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">提交时间：</div>
+                <div class="detail-value" id="detailDate"></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">预约日期：</div>
+                <div class="detail-value" id="detailTodate"></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">预约时间：</div>
+                <div class="detail-value" id="detailTotime"></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">客户ID：</div>
+                <div class="detail-value" id="detailClientId"></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">项目ID：</div>
+                <div class="detail-value" id="detailProjectId"></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">状态：</div>
+                <div class="detail-value" id="detailStatus"></div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-label">备注：</div>
+                <div class="detail-value" id="detailRemark"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="layui-btn" id="btnCloseDetailOverlay" style="padding:8px 12px;border-radius:6px;border:1px solid #d2d6de;background:#f3f4f6;">关闭</button>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑预约模态框（内嵌式） -->
+<div class="overlay" id="editOverlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-label="编辑预约">
+        <div class="modal-header">
+            <span class="modal-title">编辑预约</span>
+            <button class="close-btn" id="closeEditOverlay" aria-label="关闭" style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;line-height:1;">
+                ✕
+            </button>
+        </div>
+        <div class="modal-body">
+            <form class="layui-form" id="editForm">
+                <input type="hidden" id="editId" name="id">
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">预约日期</label>
+                    <div class="layui-input-block">
+                        <input type="text" id="editTodate" name="todate" class="layui-input" required >
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">预约时间</label>
+                    <div class="layui-input-block">
+                        <input type="text" id="editTotime" name="totime" class="layui-input">
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">客户ID</label>
+                    <div class="layui-input-block">
+                        <input type="number" id="editClientId" name="clientId" class="layui-input" required >
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">项目ID</label>
+                    <div class="layui-input-block">
+                        <input type="number" id="editProjectId" name="projectId" class="layui-input">
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">状态</label>
+                    <div class="layui-input-block">
+                        <select name="status" id="editStatus" required >
+                            <option value="0">未处理</option>
+                            <option value="1">已确认</option>
+                            <option value="2">已取消</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">备注</label>
+                    <div class="layui-input-block">
+                        <textarea name="remark" id="editRemark" class="layui-textarea"></textarea>
+                    </div>
+                </div>
+
+                <div class="layui-form-item" style="margin-top:6px;">
+                    <div class="layui-input-block" style="text-align:right;">
+                        <button class="layui-btn" id="btnEditSubmit" type="button">提交</button>
+                        <button type="button" class="layui-btn layui-btn-primary" id="btnCancelEditOverlay">取消</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 新增预约模态框（内嵌式） -->
+<div class="overlay" id="addOverlay" aria-hidden="true">
+    <div class="modal" role="dialog" aria-label="新增预约">
+        <div class="modal-header">
+            <span class="modal-title">新增预约</span>
+            <button class="close-btn" id="closeAddOverlay" aria-label="关闭" style="width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;line-height:1;">
+                ✕
+            </button>
+        </div>
+        <div class="modal-body">
+            <form class="layui-form" id="addForm">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">预约日期</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="todate" class="layui-input" required placeholder="请输入预约日期">
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">预约时间</label>
+                    <div class="layui-input-block">
+                        <input type="text" name="totime" class="layui-input" placeholder="请输入预约时间">
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">客户ID</label>
+                    <div class="layui-input-block">
+                        <input type="number" name="clientId" class="layui-input" required placeholder="请输入客户ID">
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">项目ID</label>
+                    <div class="layui-input-block">
+                        <input type="number" name="projectId" class="layui-input" placeholder="请输入项目ID">
+                    </div>
+                </div>
+
+                <div class="layui-form-item">
+                    <label class="layui-form-label">备注</label>
+                    <div class="layui-input-block">
+                        <textarea name="remark" class="layui-textarea" placeholder="请输入备注信息"></textarea>
+                    </div>
+                </div>
+
+                <div class="layui-form-item" style="margin-top:6px;">
+                    <div class="layui-input-block" style="text-align:right;">
+                        <button class="layui-btn" id="btnAddSubmit" type="button">提交</button>
+                        <button type="button" class="layui-btn layui-btn-primary" id="btnCancelAddOverlay">取消</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="../../layui/layui.js"></script>
+<script>
+    // 页面状态
+    let state = {
+        page: 1,
+        pageSize: 10,
+        keyword: '',
+        status: '',
+        hasMore: true,
+        loading: false
+    };
+
+    // 简单工具函数
+    function escapeHtml(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function statusText(s){
+        if(s === 1) return '已确认';
+        if(s === 2) return '已取消';
+        return '未处理';
+    }
+    function badgeClass(s){
+        if(s === 1) return 'confirm';
+        if(s === 2) return 'cancel';
+        return 'pending';
+    }
+
+    /* ---------- AJAX 通用封装（XMLHttpRequest） ---------- */
+    function ajaxRequest(url, method = 'GET', data = null) {
+        return new Promise((resolve, reject) => {
+            try {
+                const xhr = new XMLHttpRequest();
+                const isGet = method.toUpperCase() === 'GET';
+                let sendUrl = url;
+
+                if (isGet && data && Object.keys(data).length > 0) {
+                    const params = Object.keys(data).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(data[k])).join('&');
+                    sendUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + params;
+                }
+
+                xhr.open(method, sendUrl, true);
+
+                if (!isGet) {
+                    xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                }
+
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState !== 4) return;
+                    const status = xhr.status;
+                    if (status >= 200 && status < 300) {
+                        try {
+                            const json = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+                            resolve(json);
+                        } catch (err) {
+                            reject(new Error('返回结果非 JSON'));
+                        }
+                    } else {
+                        reject(new Error('HTTP status ' + status));
+                    }
+                };
+
+                xhr.onerror = function() {
+                    reject(new Error('网络错误'));
+                };
+
+                if (isGet) {
+                    xhr.send();
+                } else {
+                    xhr.send(data ? JSON.stringify(data) : null);
+                }
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /* ---------- 用 AJAX 实现的 API 函数（接口不变） ---------- */
+    async function fetchReservations(page = 1, pageSize = 10, keyword = '', status = '') {
+        try {
+            state.loading = true;
+            showLoading();
+
+            let url = '/reservation/reserverList';
+            const params = { page: page, size: pageSize };
+            if (keyword) params.q = keyword;
+            if (status !== '') params.status = status;
+
+            const result = await ajaxRequest(url, 'GET', params);
+            if (result && result.code === 0) {
+                return result.data;
+            } else {
+                const msg = result ? result.message : '未知错误';
+                alertFallback('获取数据失败: ' + msg);
+                return null;
+            }
+        } catch (error) {
+            alertFallback('网络错误，请稍后重试');
+            return null;
+        } finally {
+            state.loading = false;
+            hideLoading();
+        }
+    }
+
+    async function fetchReservationDetail(id) {
+        try {
+            const url = '/reservation/reserverDetail';
+            const result = await ajaxRequest(url, 'GET', { id: id });
+            if (result && result.code === 0) {
+                return result.data;
+            } else {
+                const msg = result ? result.message : '未知错误';
+                alertFallback('获取详情失败: ' + msg);
+                return null;
+            }
+        } catch (error) {
+            alertFallback('网络错误，请稍后重试');
+            return null;
+        }
+    }
+
+    async function updateReservation(data) {
+        try {
+            const url = '/reservation/reserverUpdate';
+            const result = await ajaxRequest(url, 'POST', data);
+            return result;
+        } catch (error) {
+            return { code: -1, message: '网络错误' };
+        }
+    }
+
+    async function createReservation(data) {
+        try {
+            const url = '/reservation/create';
+            const result = await ajaxRequest(url, 'POST', data);
+            return result;
+        } catch (error) {
+            return { code: -1, message: '网络错误' };
+        }
+    }
+
+    async function deleteReservation(id) {
+        try {
+            const url = '/reservation/delete';
+            const result = await ajaxRequest(url + '?id=' + encodeURIComponent(id), 'POST', null);
+            return result;
+        } catch (error) {
+            return { code: -1, message: '网络错误' };
+        }
+    }
+
+    /* ---------- 渲染函数（保持不变或轻度增强） ---------- */
+    function renderCards(data) {
+        const wrap = document.getElementById('cardList');
+
+        if (!data || !Array.isArray(data.records) || data.records.length === 0) {
+            if (state.page === 1) {
+                document.getElementById('empty').style.display = 'block';
+                wrap.innerHTML = '';
+            }
+            document.getElementById('moreWrap').style.display = 'none';
+            return;
+        } else {
+            document.getElementById('empty').style.display = 'none';
+        }
+
+        if (state.page === 1) {
+            wrap.innerHTML = '';
+        }
+
+        data.records.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            const av = document.createElement('div');
+            av.className = 'avatar';
+            av.textContent = 'P' + (item.projectId || '0');
+
+            const body = document.createElement('div');
+            body.className = 'card-body';
+
+            const right = (item.todate || '') + (item.totime ? (' · ' + item.totime) : '');
+            body.innerHTML = `
+                <div class="meta">
+                    <div class="left">#${item.id} · ${escapeHtml(item.date)}</div>
+                    <div class="right">${escapeHtml(right)}</div>
+                </div>
+                <div class="title">项目 ${escapeHtml(item.projectId || '无')} · 客户 ${escapeHtml(item.clientId)}</div>
+                <div class="desc">${escapeHtml(item.remark||'无备注')}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+                    <div class="status">
+                        <span class="badge ${badgeClass(item.status)}">${statusText(item.status)}</span>
+                    </div>
+                    <div>
+                        <button class="action" data-id="${item.id}" data-action="view"><i class="bi bi-eye"></i> 查看</button>
+                        <button class="action" data-id="${item.id}" data-action="edit"><i class="bi bi-pencil"></i> 编辑</button>
+                        <button class="action danger" data-id="${item.id}" data-action="delete"><i class="bi bi-trash"></i> 删除</button>
+                    </div>
+                </div>
+            `;
+
+            card.appendChild(av);
+            card.appendChild(body);
+            wrap.appendChild(card);
+        });
+
+        // 显示或隐藏"加载更多"按钮
+        state.hasMore = (state.page * state.pageSize) < data.total;
+        document.getElementById('moreWrap').style.display = state.hasMore ? 'block' : 'none';
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById('tableBody');
+
+        if (state.page === 1) {
+            tbody.innerHTML = '';
+        }
+
+        if (!data || !Array.isArray(data.records)) return;
+
+        data.records.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.id}</td>
+                <td>${escapeHtml(item.date)}</td>
+                <td>${escapeHtml(item.todate)}</td>
+                <td>${escapeHtml(item.totime || '无')}</td>
+                <td>${escapeHtml(item.clientId)}</td>
+                <td>${escapeHtml(item.projectId || '无')}</td>
+                <td><span class="badge ${badgeClass(item.status)}">${statusText(item.status)}</span></td>
+                <td>
+                    <button class="layui-btn layui-btn-xs" data-id="${item.id}" data-action="view">查看</button>
+                    <button class="layui-btn layui-btn-xs layui-btn-normal" data-id="${item.id}" data-action="edit">编辑</button>
+                    <button class="layui-btn layui-btn-xs layui-btn-danger" data-id="${item.id}" data-action="delete">删除</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function showLoading() {
+        const cards = document.getElementById('cardList');
+        const table = document.getElementById('tableBody');
+
+        if (state.page === 1) {
+            if (window.innerWidth < 801) {
+                cards.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+            } else {
+                table.innerHTML = '<tr><td colspan="8" style="text-align: center;">加载中...</td></tr>';
+            }
+        }
+    }
+
+    function hideLoading() {
+        // no-op，渲染函数会覆盖
+    }
+
+    function showDetailModal(data) {
+        document.getElementById('detailId').textContent = data.reserver.id;
+        document.getElementById('detailDate').textContent = data.reserver.date || '无';
+        document.getElementById('detailTodate').textContent = data.reserver.todate || '无';
+        document.getElementById('detailTotime').textContent = data.reserver.totime || '无';
+        document.getElementById('detailClientId').textContent = data.reserver.clientId;
+        document.getElementById('detailProjectId').textContent = data.reserver.projectId || '无';
+        document.getElementById('detailStatus').innerHTML = `<span class="badge ${badgeClass(data.reserver.status)}">${statusText(data.reserver.status)}</span>`;
+        document.getElementById('detailRemark').textContent = data.reserver.remark || '无';
+
+        openOverlay('detailOverlay');
+    }
+
+    function showEditModal(data) {
+        document.getElementById('editId').value = data.reserver.id;
+        document.getElementById('editTodate').value = data.reserver.todate || '';
+        document.getElementById('editTotime').value = data.reserver.totime || '';
+        document.getElementById('editClientId').value = data.reserver.clientId;
+        document.getElementById('editProjectId').value = data.reserver.projectId || '';
+        document.getElementById('editStatus').value = data.reserver.status;
+        document.getElementById('editRemark').value = data.reserver.remark || '';
+
+        openOverlay('editOverlay');
+        if (window.layui && layui.form) {
+            layui.form.render();
+        }
+    }
+
+    function showAddModal() {
+        const addForm = document.getElementById('addForm');
+        if (addForm) addForm.reset();
+        openOverlay('addOverlay');
+        if (window.layui && layui.form) {
+            layui.form.render();
+        }
+    }
+
+    function openOverlay(id) {
+        document.getElementById(id).style.display = 'flex';
+    }
+
+    function closeOverlay(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    /* ---------- layui 初始化与事件绑定 ---------- */
+    document.addEventListener('DOMContentLoaded', function(){
+        // 尝试初始化 layui 模块（如果加载成功）
+        if (window.layui) {
+            try {
+                layui.use(['layer', 'form', 'laydate'], function(){
+                    const layer = layui.layer;
+                    const form = layui.form;
+                    const laydate = layui.laydate;
+
+                    // 初始化日期选择器
+                    laydate.render({
+                        elem: '#editTodate',
+                        type: 'date'
+                    });
+
+                    laydate.render({
+                        elem: '[name="todate"]',
+                        type: 'date'
+                    });
+
+                    // 编辑表单提交
+                    form.on('submit(editSubmit)', function(data){
+                        const formData = data.field;
+
+                        const payload = {
+                            id: parseInt(formData.id),
+                            todate: formData.todate,
+                            totime: formData.totime || null,
+                            clientId: parseInt(formData.clientId),
+                            projectId: formData.projectId ? parseInt(formData.projectId) : null,
+                            status: parseInt(formData.status),
+                            remark: formData.remark
+                        };
+
+                        updateReservation(payload).then(result => {
+                            if (result && result.code === 0) {
+                                layer.msg('更新成功', {icon: 1});
+                                layer.closeAll();
+                                loadReservations(1);
+                            } else {
+                                layer.msg('更新失败: ' + (result ? result.message : '未知错误'), {icon: 2});
+                            }
+                        });
+
+                        return false; // 阻止表单跳转
+                    });
+
+                    // 新增表单提交
+                    form.on('submit(addSubmit)', function(data){
+                        const formData = data.field;
+
+                        const payload = {
+                            todate: formData.todate,
+                            totime: formData.totime || null,
+                            clientId: parseInt(formData.clientId),
+                            projectId: formData.projectId ? parseInt(formData.projectId) : null,
+                            status: 0, // 默认未处理
+                            remark: formData.remark
+                        };
+
+                        createReservation(payload).then(result => {
+                            if (result && result.code === 0) {
+                                layer.msg('创建成功', {icon: 1});
+                                layer.closeAll();
+                                loadReservations(1);
+                            } else {
+                                layer.msg('创建失败: ' + (result ? result.message : '未知错误'), {icon: 2});
+                            }
+                        });
+
+                        return false; // 阻止表单跳转
+                    });
+                });
+            } catch (e) {
+                // layui init failed，保持为空实现
+            }
+        }
+
+        // 加载预约数据
+        loadReservations();
+
+        // 事件监听
+        const byId = id => document.getElementById(id);
+        byId('btnRefresh').addEventListener('click', function(){
+            loadReservations(1);
+        });
+
+        byId('btnSearch').addEventListener('click', function(){
+            state.keyword = document.getElementById('searchInput').value;
+            state.status = document.getElementById('statusFilter').value;
+            loadReservations(1);
+        });
+
+        byId('btnMore').addEventListener('click', function(){
+            if (!state.loading && state.hasMore) {
+                loadReservations(state.page + 1);
+            }
+        });
+
+        byId('btnAdd').addEventListener('click', function(){
+            showAddModal();
+        });
+
+        byId('goSubmit').addEventListener('click', function(){
+            showAddModal();
+        });
+
+        byId('btnCloseDetailOverlay').addEventListener('click', function(){
+            closeOverlay('detailOverlay');
+        });
+        byId('closeDetailOverlay').addEventListener('click', function(){
+            closeOverlay('detailOverlay');
+        });
+
+        byId('btnCancelEditOverlay').addEventListener('click', function(){
+            closeOverlay('editOverlay');
+        });
+        byId('closeEditOverlay').addEventListener('click', function(){
+            closeOverlay('editOverlay');
+        });
+
+        byId('btnCancelAddOverlay').addEventListener('click', function(){
+            closeOverlay('addOverlay');
+        });
+        byId('closeAddOverlay').addEventListener('click', function(){
+            closeOverlay('addOverlay');
+        });
+
+        byId('btnEditSubmit').addEventListener('click', function(){
+            const form = document.getElementById('editForm');
+            const formData = {
+                id: document.getElementById('editId').value,
+                todate: document.getElementById('editTodate').value,
+                totime: document.getElementById('editTotime').value,
+                clientId: document.getElementById('editClientId').value,
+                projectId: document.getElementById('editProjectId').value,
+                status: document.getElementById('editStatus').value,
+                remark: document.getElementById('editRemark').value
+            };
+            const payload = {
+                id: parseInt(formData.id),
+                todate: formData.todate,
+                totime: formData.totime || null,
+                clientId: parseInt(formData.clientId),
+                projectId: formData.projectId ? parseInt(formData.projectId) : null,
+                status: parseInt(formData.status),
+                remark: formData.remark
+            };
+            updateReservation(payload).then(result => {
+                if (result && result.code === 0) {
+                    alert('更新成功');
+                    closeOverlay('editOverlay');
+                    loadReservations(1);
+                } else {
+                    alert('更新失败: ' + (result ? result.message : '未知错误'));
+                }
+            });
+        });
+
+        // 委托事件处理（查看/编辑/删除）
+        document.body.addEventListener('click', function(e){
+            const btn = e.target.closest('[data-action]');
+            if(!btn) return;
+
+            const action = btn.getAttribute('data-action');
+            const id = btn.getAttribute('data-id');
+
+            if (action === 'view') {
+                fetchReservationDetail(id).then(data => {
+                    if (data) {
+                        showDetailModal(data);
+                    }
+                });
+            } else if (action === 'edit') {
+                fetchReservationDetail(id).then(data => {
+                    if (data) {
+                        showEditModal(data);
+                    }
+                });
+            } else if (action === 'delete') {
+                confirmFallback('确定要删除这条预约记录吗？').then(confirmed => {
+                    if (!confirmed) return;
+                    deleteReservation(id).then(result => {
+                        if (result && result.code === 0) {
+                            alertFallback('删除成功');
+                            loadReservations(1);
+                        } else {
+                            alertFallback('删除失败: ' + (result ? result.message : '未知错误'));
+                        }
+                    });
+                });
+            }
+        });
+    });
+
+    // 加载预约数据
+    async function loadReservations(page = 1) {
+        if (page === 1) {
+            state.page = 1;
+        } else {
+            state.page = page;
+        }
+
+        const data = await fetchReservations(state.page, state.pageSize, state.keyword, state.status);
+        if (data) {
+            renderCards(data);
+            renderTable(data);
+        }
+    }
+
+    /* ---------- 辅助的回退函数（layui 不可用时） ---------- */
+    function confirmFallback(msg) {
+        if (window.layui && layui.layer && layui.layer.confirm) {
+            return new Promise((resolve) => {
+                layui.layer.confirm(msg, function(index){
+                    layui.layer.close(index);
+                    resolve(true);
+                }, function(){
+                    resolve(false);
+                });
+            });
+        } else {
+            return Promise.resolve(confirm(msg));
+        }
+    }
+
+    function alertFallback(msg) {
+        if (window.layui && layui.layer && layui.layer.msg) {
+            layui.layer.msg(msg);
+        } else {
+            alert(msg);
+        }
+    }
+</script>
+</body>
+</html>

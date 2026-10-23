@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+    <title>历史体检记录（只读）- 移动优先（分页）</title>
+
+    <!-- 请按项目实际路径替换 -->
+    <link rel="stylesheet" href="../../layui/css/layui.css">
+    <script src="../../layui/layui.js"></script>
+
+    <style>
+        :root{--bg:#f5f7fb;--card:#fff;--muted:#6b7280;--primary:#2563eb}
+        *{box-sizing:border-box}
+        body{margin:0;font-family:Inter, "PingFang SC","Microsoft YaHei",Arial,Helvetica,sans-serif;background:linear-gradient(180deg,#f7fbff,var(--bg));color:#0f172a;padding-bottom:56px}
+        .topbar{position:sticky;top:0;z-index:120;background:linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.9));padding:10px;display:flex;gap:10px;align-items:center;border-bottom:1px solid rgba(16,24,40,0.04)}
+        .container{max-width:1100px;margin:10px auto;padding:0 12px}
+        .card-list{display:grid;gap:12px;grid-template-columns:1fr;margin-top:6px;margin-bottom:6px}
+        .card{display:flex;gap:12px;padding:12px;border-radius:12px;background:linear-gradient(180deg,#fff,#fbfdff);box-shadow:0 6px 18px rgba(15,23,42,0.04);border:1px solid rgba(16,24,40,0.03);align-items:flex-start}
+        .pagination{display:flex;gap:8px;align-items:center;justify-content:center;padding:12px 0}
+        .pg-btn{padding:8px 12px;border-radius:8px;border:1px solid rgba(16,24,40,0.06);background:#fff;cursor:pointer}
+        .pg-info{color:var(--muted)}
+        @media(min-width:900px){ .card-list{grid-template-columns:1fr 1fr} }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <div style="display:flex;flex-direction:column;min-width:0">
+        <div style="font-weight:700;font-size:16px">历史体检记录</div>
+        <div style="font-size:12px;color:#6b7280">只读 · 分页展示历史订单</div>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:0;margin-left:12px">
+        <input id="kw" placeholder="搜索（回车）" style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid rgba(16,24,40,0.06);background:#fff">
+        <button class="pg-btn" id="refresh">刷新</button>
+    </div>
+</div>
+
+<div class="container">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <!-- 只保留“项目”两个字，移除 projectName 字段显示 -->
+        <div style="font-weight:700">项目</div>
+        <div style="margin-left:auto;color:#6b7280">总计：<span id="totalCount">0</span> 条</div>
+    </div>
+
+    <div id="cardList" class="card-list"></div>
+
+    <div id="empty" style="display:none;padding:26px;border-radius:12px;text-align:center;color:#6b7280;background:#fff;margin-top:8px">暂无历史记录</div>
+
+    <!-- 分页控件 -->
+    <div class="pagination" id="pagination" style="display:none">
+        <button id="prevPage" class="pg-btn">上一页</button>
+        <div class="pg-info" id="pgInfo">第 <span id="pgNum">1</span> 页 / 共 <span id="pgTotal">1</span> 页</div>
+        <button id="nextPage" class="pg-btn">下一页</button>
+    </div>
+</div>
+
+<!-- 详情 modal 保持原有结构（省略样式复述） -->
+<div id="detailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.32);z-index:60;align-items:flex-end;">
+    <div style="width:100%;background:#fff;border-top-left-radius:14px;border-top-right-radius:14px;max-height:88vh;overflow:auto;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><div id="modalTitle" style="font-weight:700">检查详情</div><div id="modalSubtitle" style="color:#6b7280;font-size:13px"></div></div>
+            <div><button id="closeDetailOverlay" style="border:none;background:transparent;font-size:20px;cursor:pointer">✕</button></div>
+        </div>
+
+        <div id="leftList" style="display:flex;gap:8px;overflow-x:auto;padding-top:12px"></div>
+        <div id="detailRight" style="margin-top:12px"></div>
+
+        <div style="text-align:right;padding-top:10px"><button id="btnCloseDetail" class="pg-btn">关闭</button></div>
+    </div>
+</div>
+
+<script>
+    // API endpoints
+    const API = {
+        list: '/report/order-detail',        // GET userId,page,size -> data.total,data.page,data.size,data.orders
+        byMain: '/report/order-detail/'      // GET /{mainId}
+    };
+
+    // state
+    let state = {
+        userId: localStorage.getItem('id') || null,
+        page: 1,
+        size: 10,
+        total: 0,
+        orders: [],   // array of orders returned by API
+        currentMain: null
+    };
+
+    function escapeHtml(s){ if (s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // tiny ajax
+    function ajax(url, method='GET', data=null) {
+        return new Promise((resolve,reject)=>{
+            const xhr = new XMLHttpRequest();
+            let sendUrl = url;
+            if (method.toUpperCase()==='GET' && data) {
+                const params = Object.keys(data).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(data[k])).join('&');
+                sendUrl = url + (url.indexOf('?')===-1 ? '?' : '&') + params;
+            }
+            xhr.open(method, sendUrl, true);
+            if (method.toUpperCase()!=='GET') xhr.setRequestHeader('Content-Type','application/json;charset=UTF-8');
+            xhr.timeout = 10000;
+            xhr.onreadystatechange = ()=> {
+                if (xhr.readyState !== 4) return;
+                if (xhr.status>=200 && xhr.status<300) {
+                    try { resolve(xhr.responseText ? JSON.parse(xhr.responseText) : {}); } catch(e){ reject(e); }
+                } else reject(new Error('HTTP '+xhr.status));
+            };
+            xhr.onerror = ()=>reject(new Error('网络错误'));
+            xhr.ontimeout = ()=>reject(new Error('超时'));
+            xhr.send(method.toUpperCase()==='GET' ? null : JSON.stringify(data));
+        });
+    }
+
+    // render list of orders (cards) - 修复：确保每个主订单都会渲染为单张卡片
+    function renderOrders() {
+        const listWrap = document.getElementById('cardList');
+        listWrap.innerHTML = '';
+
+        // 防御：确保 state.orders 是数组
+        const orders = Array.isArray(state.orders) ? state.orders : [];
+
+        if (orders.length === 0) {
+            document.getElementById('empty').style.display = 'block';
+        } else {
+            document.getElementById('empty').style.display = 'none';
+            orders.forEach(o=>{
+                // 保证字段名容错（后端你已经返回 clientName/project_name/items/details）
+                const client = o.clientName || o.client_name || '';
+                const mainDate = o.date || '';
+                const project = o.project_name || o.projectName || '--';
+                const info = o.info || '';
+                const id = o.id || o.main_id || '';
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div style="min-width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,#e0f2fe,#eef2ff);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--primary);font-size:14px">
+                        ${escapeHtml((client||'').slice(0,1) || '体')}
+                    </div>
+                    <div style="flex:1;min-width:0">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                        <div style="color:#6b7280;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                          ${escapeHtml(mainDate)} · ${escapeHtml(project)}
+                        </div>
+                        <div style="color:#6b7280;font-size:12px">订单ID:${escapeHtml(String(id))}</div>
+                      </div>
+                      <div style="font-weight:700;color:#0f172a;margin-bottom:6px">${escapeHtml(client)}</div>
+                      <div style="color:#6b7280;margin-bottom:8px">${escapeHtml(info)}</div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button class="pg-btn" data-mainid="${escapeHtml(String(id))}" data-act="view">查看详情</button>
+                        <button class="pg-btn" data-mainid="${escapeHtml(String(id))}" data-act="open">打开弹窗</button>
+                        <div style="margin-left:auto;color:#6b7280;font-size:12px">子项目: ${Array.isArray(o.items) ? o.items.length : 0}</div>
+                      </div>
+                    </div>
+                `;
+                listWrap.appendChild(card);
+            });
+
+            // 绑定按钮事件（统一处理 view 与 open）
+            listWrap.querySelectorAll('button[data-mainid]').forEach(b=>{
+                b.addEventListener('click', function(){
+                    const mid = this.getAttribute('data-mainid');
+                    openMainDetail(mid);
+                });
+            });
+        }
+
+        // update totals & pagination
+        document.getElementById('totalCount').textContent = state.total || 0;
+        const pg = document.getElementById('pagination');
+        const totalPages = Math.max(1, Math.ceil((state.total || 0) / state.size));
+        if ((state.total || 0) > state.size) {
+            pg.style.display = 'flex';
+            document.getElementById('pgNum').textContent = state.page;
+            document.getElementById('pgTotal').textContent = totalPages;
+            document.getElementById('prevPage').disabled = state.page <= 1;
+            document.getElementById('nextPage').disabled = state.page >= totalPages;
+        } else {
+            pg.style.display = 'none';
+        }
+    }
+
+    // open main order detail in overlay using data already loaded in state.orders
+    function openMainDetail(mainId) {
+        // try find in current state.orders first
+        const orders = Array.isArray(state.orders) ? state.orders : [];
+        let main = orders.find(x => String(x.id) === String(mainId) || String(x.main_id) === String(mainId));
+        if (!main) {
+            // fallback: fetch single main from backend
+            ajax(API.byMain + encodeURIComponent(mainId), 'GET').then(res=>{
+                if (!res || res.code !== 0) { alert(res && res.msg ? res.msg : '获取失败'); return; }
+                // 后端返回的 res.data 属于单个主订单对象（按你后端实现）
+                fillDetailOverlay(res.data);
+                showOverlay();
+            }).catch(err=>{ alert('请求失败：' + (err.message||err)); });
+            return;
+        }
+        fillDetailOverlay(main);
+        showOverlay();
+    }
+
+    // fill overlay content: leftList and detailRight
+    function fillDetailOverlay(main) {
+        state.currentMain = main;
+        const clientName = main.clientName || main.client_name || '';
+        const mainDate = main.date || '';
+        document.getElementById('modalTitle').textContent = (clientName ? (clientName + ' 的检查') : '检查详情');
+        document.getElementById('modalSubtitle').textContent = mainDate ? ('检查时间：' + mainDate) : '';
+
+        const leftList = document.getElementById('leftList');
+        leftList.innerHTML = '';
+
+        // items 可能是 [] 或 null
+        const items = Array.isArray(main.items) ? main.items : [];
+        // details 可能是 [] 或 null
+        const details = Array.isArray(main.details) ? main.details : [];
+
+        // 建立 itemId -> details[] 的映射（一个 item 可能有多条 detail）
+        const detailsMap = {};
+        details.forEach(d => {
+            const key = String(d.itemId || d.item_id || d.itemID || '');
+            if (!detailsMap[key]) detailsMap[key] = [];
+            detailsMap[key].push(d);
+        });
+
+        // 如果 items 为空，但 details 有（后端可能只返回 details），尝试从 details 中推导 items 列表
+        let derivedItems = items;
+        if (derivedItems.length === 0 && details.length > 0) {
+            // 按 itemId 分组并创建简略 item
+            const itemIds = Array.from(new Set(details.map(d => String(d.itemId || d.item_id || d.itemID || '')))).filter(x=>x);
+            derivedItems = itemIds.map(id => ({ id: id, name: '子项 ' + id, info: '' }));
+        }
+
+        if (derivedItems.length === 0) {
+            leftList.innerHTML = '<div style="padding:8px;color:#6b7280">该订单没有子项目</div>';
+            document.getElementById('detailRight').innerHTML = '<div style="color:#6b7280">无子项可显示</div>';
+            return;
+        }
+
+        // 构建左侧的每一项
+        derivedItems.forEach((it, idx) => {
+            const iid = it.id || it.itemId || it.item_id || String(idx);
+            const itsName = it.name || it.title || ('子项 ' + iid);
+            const itsInfo = it.info || '';
+            const dsForItem = detailsMap[String(iid)] || [];
+            // 取第一个 detail 的 comment/info/status 作为预览
+            const preview = dsForItem.length > 0 ? (dsForItem[0].comment || dsForItem[0].info || dsForItem[0].status || '') : '';
+            const div = document.createElement('div');
+            div.style.minWidth = '160px';
+            div.style.padding = '10px';
+            div.style.borderRadius = '10px';
+            div.style.background = '#fff';
+            div.style.border = '1px solid rgba(16,24,40,0.04)';
+            div.style.marginRight = '8px';
+            div.innerHTML = `
+                <div style="font-weight:700">${escapeHtml(String(itsName))}</div>
+                <div style="color:#6b7280;margin-top:6px">${escapeHtml(String(itsInfo))}</div>
+                <div style="margin-top:8px">${ preview ? ('<div style="font-weight:700;color:#111">'+escapeHtml(String(preview))+'</div>') : '<div style="color:#6b7280">无结果</div>'}</div>
+                <div style="margin-top:8px"><button class="pg-btn" data-itemid="${escapeHtml(String(iid))}">查看</button></div>
+            `;
+            leftList.appendChild(div);
+        });
+
+        // 绑定查看按钮
+        leftList.querySelectorAll('button[data-itemid]').forEach(b=>{
+            b.addEventListener('click', function(){
+                const itemId = this.getAttribute('data-itemid');
+                showItemDetail(itemId);
+            });
+        });
+
+        // 自动展示第一项
+        const firstId = (derivedItems[0] && (derivedItems[0].id || derivedItems[0].itemId || derivedItems[0].item_id)) || null;
+        if (firstId !== null) {
+            showItemDetail(firstId);
+        } else {
+            document.getElementById('detailRight').innerHTML = '<div style="color:#6b7280">无子项</div>';
+        }
+    }
+
+    function showItemDetail(itemId) {
+        const main = state.currentMain;
+        if (!main) return;
+        const items = Array.isArray(main.items) ? main.items : [];
+        const details = Array.isArray(main.details) ? main.details : [];
+
+        // 找 item（优先按 items 数组查找，否则用占位）
+        let item = items.find(it => String(it.id) === String(itemId) || String(it.itemId) === String(itemId));
+        if (!item) {
+            // 如果 items 不存在，则从 details 中查找信息作为备选
+            const d0 = details.find(d => String(d.itemId) === String(itemId) || String(d.item_id) === String(itemId));
+            item = { id: itemId, name: d0 && (d0.name || ('子项 ' + itemId)) || ('子项 ' + itemId), info: '' };
+        }
+
+        // 找出该 item 对应的所有 detail（可能多条）
+        const itemDetails = details.filter(d => String(d.itemId) === String(itemId) || String(d.item_id) === String(itemId));
+
+        const right = document.getElementById('detailRight');
+        right.innerHTML = `<div style="font-weight:700">${escapeHtml(item.name || ('子项 ' + itemId))}</div><div style="color:#6b7280;margin-top:6px">${escapeHtml(item.info || '')}</div><div style="margin-top:10px" id="detailContent"></div>`;
+        const container = document.getElementById('detailContent');
+        container.innerHTML = `<div style="color:#6b7280;margin-bottom:8px">检查时间： ${escapeHtml(main.date || '')} · 项目编号：${escapeHtml(String(itemId))}</div>`;
+
+        if (itemDetails.length === 0) {
+            container.innerHTML += `<div style="padding:8px;border-radius:8px;border:1px solid rgba(16,24,40,0.04);background:#fff;color:#6b7280">暂无检测结果</div>`;
+            return;
+        }
+
+        // 展示每一条 detail（若 info 为 JSON，则解析并逐键显示）
+        itemDetails.forEach(d => {
+            // 友好化字段名
+            const info = d.info;
+            const comment = d.comment;
+            const status = d.status;
+            let parsed = null;
+            if (info && typeof info === 'string') {
+                try {
+                    const s = info.trim();
+                    if (s.startsWith('{') || s.startsWith('[')) parsed = JSON.parse(s);
+                } catch(e){
+                    parsed = null;
+                }
+            } else if (info && typeof info === 'object') {
+                parsed = info;
+            }
+
+            if (parsed && typeof parsed === 'object') {
+                // 展示对象内的每个键值
+                const wrapper = document.createElement('div');
+                wrapper.style.cssText = 'padding:8px;border-radius:8px;border:1px solid rgba(16,24,40,0.04);background:#fff;margin-bottom:8px';
+                Object.keys(parsed).forEach(k=>{
+                    const v = parsed[k];
+                    const val = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+                    const row = document.createElement('div');
+                    row.style.display = 'flex';
+                    row.style.justifyContent = 'space-between';
+                    row.style.marginBottom = '6px';
+                    row.innerHTML = `<div style="color:#6b7280">${escapeHtml(k)}</div><div style="font-weight:700">${escapeHtml(val)}</div>`;
+                    wrapper.appendChild(row);
+                });
+                container.appendChild(wrapper);
+            } else {
+                // 直接展示 info / comment / status
+                if (info) {
+                    container.innerHTML += `<div style="display:flex;justify-content:space-between;padding:8px 10px;border-radius:8px;border:1px solid rgba(16,24,40,0.04);background:#fff;margin-bottom:8px"><div style="color:#6b7280">信息</div><div style="font-weight:700">${escapeHtml(info)}</div></div>`;
+                }
+                if (comment) {
+                    container.innerHTML += `<div style="display:flex;justify-content:space-between;padding:8px 10px;border-radius:8px;border:1px solid rgba(16,24,40,0.04);background:#fff;margin-bottom:8px"><div style="color:#6b7280">备注/结论</div><div style="font-weight:700">${escapeHtml(comment)}</div></div>`;
+                }
+                if (status != null) {
+                    container.innerHTML += `<div style="display:flex;justify-content:space-between;padding:8px 10px;border-radius:8px;border:1px solid rgba(16,24,40,0.04);background:#fff;margin-bottom:8px"><div style="color:#6b7280">状态</div><div style="font-weight:700">${escapeHtml(String(status))}</div></div>`;
+                }
+            }
+        });
+    }
+
+    function showOverlay(){ document.getElementById('detailOverlay').style.display='flex'; document.body.style.overflow='hidden'; }
+    function hideOverlay(){ document.getElementById('detailOverlay').style.display='none'; document.body.style.overflow=''; }
+    document.getElementById('closeDetailOverlay').addEventListener('click', hideOverlay);
+    document.getElementById('btnCloseDetail').addEventListener('click', hideOverlay);
+
+    // fetch list from backend (with pagination)
+    function fetchList(page = 1, size = 10) {
+        if (!state.userId) { console.warn('请先在 localStorage 中设置 id'); return; }
+        state.page = page;
+        state.size = size;
+        const params = { userId: state.userId, page: state.page, size: state.size };
+        ajax(API.list, 'GET', params).then(res=>{
+            if (!res || res.code !== 0) { alert(res && res.msg ? res.msg : '请求失败'); return; }
+            const data = res.data || {};
+            state.total = data.total || 0;
+            // orders: list of orders with fields including items and details
+            // 防御：确保 orders 是数组
+            state.orders = Array.isArray(data.orders) ? data.orders : [];
+            renderOrders();
+        }).catch(err=>{ console.error(err); alert('网络或服务器错误：' + (err.message || err)); });
+    }
+
+    // pagination handlers
+    document.getElementById('prevPage').addEventListener('click', function(){
+        if (state.page > 1) fetchList(state.page - 1, state.size);
+    });
+    document.getElementById('nextPage').addEventListener('click', function(){
+        const totalPages = Math.max(1, Math.ceil((state.total || 0) / state.size));
+        if (state.page < totalPages) fetchList(state.page + 1, state.size);
+    });
+
+    // refresh & search
+    document.getElementById('refresh').addEventListener('click', function(){ document.getElementById('kw').value=''; fetchList(1, state.size); });
+    document.getElementById('kw').addEventListener('keydown', function(e){ if (e.key === 'Enter') { /* optionally implement client-side filtering */ fetchList(1, state.size); }});
+
+    // initial load
+    fetchList(1, 10);
+</script>
+</body>
+</html>

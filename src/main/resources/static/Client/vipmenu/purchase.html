@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <title>套餐商城（悬浮购物球 · 我的卡悬浮窗）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <link href="../../layui/css/layui.css" rel="stylesheet" />
+    <style>
+        :root {
+            --primary: #ff6b00;
+            --primary-2: #ff8a33;
+            --muted: #8a8f98;
+            --card-radius: 12px;
+            --gap: 12px;
+            --border-light: #f0f0f0;
+            --bg: #f7fafc;
+            --max-width: 1180px;
+            --font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            background: linear-gradient(180deg, var(--bg) 0%, #f3f6fb 100%);
+            margin: 0;
+            font-family: var(--font-family);
+            color: #1b1b1b;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 1200;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .topbar .back {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-light);
+            cursor: pointer;
+            color: var(--primary);
+            flex: 0 0 38px;
+        }
+
+        .topbar .title {
+            flex: 1;
+            text-align: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: #111;
+            padding-right: 38px;
+            letter-spacing: 0.5px;
+        }
+
+        .topbar .right-space {
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+        }
+
+        .container {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 12px;
+            min-height: calc(100vh - 64px);
+            padding-bottom: 150px;
+        }
+
+        .filter-bar {
+            background: #fff;
+            padding: 12px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            margin-bottom: 12px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar input, .filter-bar select {
+            height: 40px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 15px;
+            flex: 1;
+            min-width: 120px;
+            background: #fff;
+            font-family: var(--font-family);
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--gap);
+        }
+
+        @media (max-width: 720px) {
+            .cards { grid-template-columns: 1fr; }
+            .left-col { padding-bottom: 100px; }
+        }
+
+        .card {
+            background: #fff;
+            border-radius: var(--card-radius);
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            transition: all .18s ease;
+            overflow: hidden;
+            border: 1px solid transparent;
+            min-height: 200px;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            border-color: rgba(255,107,0,0.12);
+        }
+
+        /* 缩小封面显示：调整比例与内边距 */
+        .card .cover {
+            width: 100%;
+            aspect-ratio: 4/1.6; /* 更扁的横图，视觉上更小 */
+            border-radius: 8px;
+            background: #f5f5f7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+            padding: 6px; /* 让图片不撑满，看起来更小 */
+        }
+
+        .card .cover img {
+            width: auto;
+            height: 100%;
+            max-width: 100%;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .card h3 {
+            margin: 0 0 8px 0;
+            font-size: 17px;
+            font-weight: 600;
+            color: #222;
+        }
+
+        .card .meta {
+            font-size: 14px;
+            color: var(--muted);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .priceRow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: auto;
+        }
+
+        .price {
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--primary);
+        }
+
+        .buy-btn {
+            background: linear-gradient(90deg, var(--primary), var(--primary-2));
+            border: none;
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            min-height: 44px;
+            transition: all 0.2s;
+        }
+
+        .buy-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .add-btn {
+            background: transparent;
+            border: 1px solid var(--border-light);
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: #444;
+            cursor: pointer;
+            font-size: 14px;
+            min-height: 44px;
+            transition: all 0.2s;
+        }
+
+        .add-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .cart-fab {
+            position: fixed;
+            right: 18px;
+            bottom: 22px;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-2));
+            box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 1500;
+            cursor: pointer;
+            transition: transform .18s;
+            user-select: none;
+        }
+
+        .cart-fab:active { transform: scale(.98); }
+
+        .cart-fab .count {
+            font-weight: 800;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .cart-fab .amount {
+            font-size: 12px;
+            opacity: 0.95;
+        }
+
+        @media (max-width: 720px) {
+            .cart-fab {
+                right: 50%;
+                transform: translateX(50%);
+                bottom: 18px;
+                width: 72px;
+                height: 72px;
+            }
+        }
+
+        .fab-panel {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 360px;
+            max-height: 64vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.18);
+            z-index: 1600;
+            padding: 20px;
+            display: none;
+        }
+
+        @media (max-width: 720px) {
+            .fab-panel {
+                width: 92%;
+                max-height: 72vh;
+                border-radius: 16px;
+            }
+        }
+
+        .fab-panel h4 {
+            margin: 0 0 12px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #222;
+        }
+
+        .fab-item {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            margin-bottom: 10px;
+            background: #fffaf3;
+        }
+
+        .fab-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        /* 我的卡 悬浮与面板 */
+        .mycard-fab {
+            position: fixed;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #fff;
+            border: 1px solid var(--border-light);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1600;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .mycard-fab .label {
+            font-size: 13px;
+            color: var(--primary);
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .mycard-panel {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 340px;
+            max-height: 60vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.18);
+            z-index: 1600;
+            padding: 20px;
+            display: none;
+        }
+
+        @media (max-width: 720px) {
+            .mycard-panel {
+                width: 92%;
+            }
+        }
+
+        .mycard-panel h4 {
+            margin: 0 0 12px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: 600;
+            color: #222;
+        }
+
+        .card-list-item {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fff;
+        }
+
+        .card-list-item:hover {
+            border-color: var(--primary);
+            background: #fffaf3;
+        }
+
+        .card-list-item.disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        .card-list-item.selected {
+            border-color: var(--primary);
+            background: linear-gradient(90deg, #fff7f0, #fff3ee);
+        }
+
+        .mycard-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            justify-content: flex-end;
+        }
+
+        .small-input {
+            padding: 10px 12px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            width: 100%;
+            font-size: 14px;
+            font-family: var(--font-family);
+        }
+
+        @media (max-width: 420px) {
+            .mycard-panel { width: 94%; }
+            .fab-panel { width: 94%; }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .layui-btn { font-family: var(--font-family); }
+
+        .checkout {
+            background: linear-gradient(90deg, var(--primary), var(--primary-2));
+            border: none;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .card-selector { margin-bottom: 12px; }
+        .card-option {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fff;
+        }
+        .card-option:hover { border-color: var(--primary); }
+        .card-option.selected { border-color: var(--primary); background: #fffaf3; }
+        .card-option.disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* 购物车缩略图更小 */
+        .fab-item .thumb { width:46px;height:46px;border-radius:6px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center }
+        .fab-item .thumb img { width:100%;height:100%;object-fit:cover }
+    </style>
+</head>
+<body>
+<div class="topbar" role="navigation" aria-label="页面顶部">
+    <button class="back" id="btnBack" title="返回" aria-label="返回">
+        <i class="layui-icon" style="font-size:18px;color:var(--primary)">&#xe603;</i>
+    </button>
+    <div class="title" id="pageTitle" aria-live="polite">套餐商城</div>
+    <div class="right-space" aria-hidden="true"></div>
+</div>
+
+<div class="container" id="appContainer">
+    <div class="layout-flex" role="main">
+        <div class="left-col">
+            <div class="filter-bar" role="region" aria-label="筛选">
+                <input id="searchName" placeholder="按名称搜索" aria-label="按名称搜索" />
+                <select id="statusFilter" aria-label="状态筛选">
+                    <option value="">全部状态</option>
+                    <option value="0">未发布</option>
+                    <option value="1">已上线</option>
+                </select>
+                <button class="layui-btn layui-btn-sm" id="btnApplyFilters" aria-label="应用筛选">应用</button>
+            </div>
+
+            <div class="cards" id="cardsContainer" aria-live="polite">
+                <div class="loading">正在加载套餐...</div>
+            </div>
+
+            <div style="margin-top:12px; text-align:center" id="pagerContainer" aria-label="分页容器"></div>
+        </div>
+
+        <aside class="right-col" aria-hidden="true"></aside>
+    </div>
+</div>
+
+<!-- 购物球 -->
+<button class="cart-fab" id="cartFab" title="打开购物车" aria-label="打开购物车" aria-expanded="false">
+    <div class="count" id="fabCount">0</div>
+    <div class="amount" id="fabAmount">¥0.00</div>
+</button>
+
+<!-- 我的卡 悬浮按钮（可拖动）-->
+<div class="mycard-fab" id="mycardFab" role="button" aria-haspopup="dialog" aria-expanded="false" title="我的卡">
+    <div class="label" id="mycardFabLabel">我的卡</div>
+</div>
+
+<!-- 我的卡 面板（居中弹出）-->
+<div class="mycard-panel" id="mycardPanel" role="dialog" aria-label="我的会员卡">
+    <h4>我的卡 <span id="mycardCount" class="muted"></span></h4>
+
+    <div id="mycardList">
+        <div class="muted">正在加载卡片...</div>
+    </div>
+
+    <!-- 已移除手动输入卡号控件：默认使用自己的卡 -->
+    <div class="mycard-actions">
+        <button id="btnRefreshCards" class="layui-btn layui-btn-sm">刷新</button>
+        <button id="btnCloseCardPanel" class="layui-btn layui-btn-primary layui-btn-sm">关闭</button>
+    </div>
+</div>
+
+<!-- 购物车面板 -->
+<div class="fab-panel" id="fabPanel" aria-hidden="true" role="dialog" aria-label="购物车面板">
+    <h4>购物车 <span id="fabItemCount" style="font-size:14px;color:var(--muted);margin-left:8px"></span></h4>
+    <div id="fabList">
+        <div class="muted">购物车为空</div>
+    </div>
+
+    <div class="fab-actions">
+        <div class="left">合计：<strong id="fabTotal">¥0.00</strong></div>
+        <div style="display:flex;gap:8px">
+            <button class="layui-btn layui-btn-danger layui-btn-sm" id="fabClear" aria-label="清空购物车">清空</button>
+            <button class="checkout" id="fabCheckout" aria-label="去结算">去结算</button>
+        </div>
+    </div>
+</div>
+
+<script src="../../layui/layui.js"></script>
+<script>
+    layui.use(['layer','form','laypage','jquery'], function(){
+        var layer = layui.layer, form = layui.form, laypage = layui.laypage, $ = layui.$;
+
+        var api = {
+            list: '/project/list',
+            purchase: '/pay/purchase',
+            cardInfo: '/card/info'
+        };
+
+        var projects = [], cart = [];
+        var userCards = [];
+        var currentCard = null;
+        var clientId = localStorage.getItem('id') || localStorage.getItem('userId') || null;
+
+        function normalizeListResponse(res){
+            if(!res) return {items:[], total:0};
+            if(Array.isArray(res)) return {items:res, total:res.length};
+            if(res.code!==undefined){
+                if(res.code===0||res.code===200){
+                    if(Array.isArray(res.data)) return {items:res.data, total: res.count||res.total||res.data.length};
+                    if(res.data && res.data.list) return {items:res.data.list, total: res.data.count||res.data.total||res.data.list.length};
+                }
+            }
+            if(res.data && Array.isArray(res.data.list)) return {items: res.data.list, total: res.data.total||res.data.count||res.data.list.length};
+            if(Array.isArray(res.items)) return {items:res.items, total: res.total||res.count||res.items.length};
+            return {items:[], total:0};
+        }
+
+        function loadProjectList(params){
+            params = params || {};
+            $('#cardsContainer').html('<div class="loading"><i class="layui-icon layui-anim layui-anim-rotate layui-anim-loop" style="font-size:24px;color:var(--primary)">&#xe63e;</i><div style="margin-top:8px">正在加载套餐...</div></div>');
+            $.ajax({
+                url: api.list, method: 'GET', data: params, dataType:'json', xhrFields:{withCredentials:true},
+                success: function(res){
+                    var norm = normalizeListResponse(res);
+                    projects = norm.items||[];
+                    renderCards();
+                    renderPagination(norm.total || projects.length, params.page||1, params.size||10);
+                },
+                error: function(){ $('#cardsContainer').html('<div class="empty">网络错误，请稍后重试</div>'); layer.msg('获取套餐数据失败'); }
+            });
+        }
+
+        function renderCards(){
+            var $wrap = $('#cardsContainer').empty();
+            if(!projects || projects.length===0){ $wrap.append('<div class="empty">暂无套餐数据</div>'); return; }
+            projects.forEach(function(p){
+                var price = parseFloat(p.price||p.amount||0);
+                var $card = $('<div class="card" tabindex="0"></div>');
+                var img = p.pic||p.img||p.cover||p.image||'';
+                var $cover = $('<div class="cover"></div>');
+                if(img) $cover.append('<img loading="lazy" src="'+img+'" alt="'+(p.name||'套餐')+'">'); else $cover.append('<i class="layui-icon icon" style="font-size:28px;color:var(--primary)">&#xe62d;</i>');
+                $card.append($cover);
+                $card.append('<h3>'+(p.name||'套餐')+'</h3>');
+                $card.append('<div class="meta">'+(p.info||p.desc||p.description||'')+'</div>');
+                var $priceRow = $('<div class="priceRow"></div>');
+                var $actions = $('<div class="actions"></div>');
+                $actions.append('<button class="buy-btn btnBuyNow" data-id="'+p.id+'"><i class="layui-icon" style="font-size:16px">&#xe654;</i> 购买</button>');
+                $actions.append('<button class="add-btn btnAddCart" data-id="'+p.id+'">加入购物车</button>');
+                $priceRow.append($actions);
+                $priceRow.append('<div class="price">¥'+price.toFixed(2)+'</div>');
+                $card.append($priceRow);
+                $wrap.append($card);
+            });
+        }
+
+        function renderPagination(total,page,size){
+            $('#pagerContainer').empty();
+            laypage.render({ elem:'pagerContainer', count: total||0, limit:size||10, curr: page||1, layout:['count','prev','page','next','limit','skip'], jump: function(obj, first){
+                    if(!first) loadProjectList({page:obj.curr, size: obj.limit, name: $('#searchName').val(), status: $('#statusFilter').val()});
+                }});
+        }
+
+        function refreshFab(){
+            var $fabCount = $('#fabCount'), $fabAmount = $('#fabAmount'), $fabList = $('#fabList'), $fabTotal = $('#fabTotal'), $fabItemCount = $('#fabItemCount');
+            $fabList.empty();
+            if(cart.length===0){ $fabList.html('<div class="muted">购物车为空</div>'); $fabCount.text(0); $fabAmount.text('¥0.00'); $fabTotal && $fabTotal.text && $fabTotal.text('¥0.00'); $fabItemCount.text(''); return; }
+            cart.forEach(function(item,idx){
+                var $it = $('<div class="fab-item"></div>');
+                var img = (projects.find(p=>p.id===item.projectId)||{}).pic || '';
+                var $thumb = $('<div class="thumb"></div>');
+                if(img) $thumb.append('<img src="'+img+'" alt="">'); else $thumb.text('套餐');
+                $it.append($thumb);
+                var subtotal = (item.price*item.qty)||0;
+                var $info = $('<div class="info" style="flex:1;margin-left:8px;"></div>');
+                $info.append('<div class="name" style="font-weight:700">'+(item.name||'套餐')+'</div>');
+                $info.append('<div class="price" style="font-size:13px;color:'+getComputedStyle(document.documentElement).getPropertyValue('--muted')+'">¥'+item.price.toFixed(2)+' × <input type="number" min="1" value="'+item.qty+'" data-idx="'+idx+'" class="fab-qty" style="width:56px;border:none;background:transparent;text-align:center;font-weight:700"> = <span style="color:var(--primary);font-weight:800">¥'+subtotal.toFixed(2)+'</span></div>');
+                $it.append($info);
+                $it.append('<div><button class="layui-btn layui-btn-danger layui-btn-xs fab-remove" data-idx="'+idx+'">移除</button></div>');
+                $fabList.append($it);
+            });
+            var totalQty = cart.reduce(function(s,it){return s+it.qty},0);
+            var total = cart.reduce(function(s,it){return s+it.price*it.qty},0);
+            $fabCount.text(totalQty); $fabAmount.text('¥'+total.toFixed(2)); $fabTotal && $fabTotal.text && $fabTotal.text('¥'+total.toFixed(2)); $fabItemCount.text('（'+totalQty+' 件）');
+        }
+
+        function addToCart(id, qty){
+            qty = qty||1; var p = projects.find(x=>x.id==id); if(!p) return layer.msg('套餐不存在');
+            var ex = cart.find(c=>c.projectId==id); if(ex) ex.qty += qty; else cart.push({projectId:id, name:p.name, price:parseFloat(p.price||p.amount||0), qty:qty});
+            refreshFab(); layer.msg('已加入购物车',{icon:1,time:1000});
+        }
+
+        function normalizeCardInfoResponse(res){
+            if(!res) return {};
+            if(res.code!==undefined){
+                if(res.code===0) return res.data||{};
+                return res;
+            }
+            if(res.status!==undefined){
+                if(res.status===0||res.status==='ok'||res.status==='success') return res.data||{};
+            }
+            return res.data||res;
+        }
+
+        function fetchCards(clientIdParam, cardCodeParam, cb){
+            var data = {};
+            if(clientIdParam) data.clientId = clientIdParam;
+            // 手动 cardCode 查询逻辑已移除；后端仍可接受 clientId 以返回该用户卡
+            $('#mycardList').html('<div class="muted">加载中...</div>');
+            $.ajax({
+                url: api.cardInfo, method:'GET', data: data, dataType:'json', xhrFields:{withCredentials:true},
+                success: function(res){
+                    var d = normalizeCardInfoResponse(res);
+                    var cards = [];
+                    if(Array.isArray(d.cards)) cards = d.cards;
+                    else if(Array.isArray(d.list)) cards = d.list;
+                    else if(d.card){ cards = Array.isArray(d.card) ? d.card : [d.card]; }
+                    else if(Array.isArray(d)) cards = d;
+                    userCards = cards||[];
+                    // 选中第一张作为默认卡（如果没有已选卡）
+                    if(userCards.length>0 && !currentCard){
+                        var c = userCards[0];
+                        var id = c.id||c.cardId||c.code||Math.random().toString(36).slice(2,8);
+                        var code = c.code||c.card_no||c.cardNo||id;
+                        var balance = c.count!==undefined?c.count:(c.balance!==undefined?c.balance:(c.amount||0));
+                        var disabled = (c.isdel===1 || (c.status!==undefined && Number(c.status)!==1));
+                        if(!disabled){
+                            currentCard = { id: id, code: code, count: parseFloat(balance||0) };
+                        } else {
+                            // 如果第一张不可用则尝试找可用卡
+                            for(var i=0;i<userCards.length;i++){
+                                var cc = userCards[i];
+                                var dstatus = (cc.isdel===1 || (cc.status!==undefined && Number(cc.status)!==1));
+                                if(!dstatus){
+                                    var iid = cc.id||cc.cardId||cc.code||Math.random().toString(36).slice(2,8);
+                                    var ccode = cc.code||cc.card_no||cc.cardNo||iid;
+                                    var cbalance = cc.count!==undefined?cc.count:(cc.balance!==undefined?cc.balance:(cc.amount||0));
+                                    currentCard = { id: iid, code: ccode, count: parseFloat(cbalance||0) };
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    renderMycardList();
+                    if(cb) cb(userCards);
+                },
+                error: function(){ $('#mycardList').html('<div class="muted">加载失败</div>'); layer.msg('获取卡片失败'); if(cb) cb([]); }
+            });
+        }
+
+        function renderMycardList(){
+            var $wrap = $('#mycardList').empty();
+            if(!userCards || userCards.length===0){
+                $wrap.html('<div class="muted">您暂无会员卡，请充值或办卡后再使用卡支付</div>');
+                $('#mycardCount').text('');
+                currentCard = null;
+                updateMycardFabLabel();
+                return;
+            }
+            userCards.forEach(function(c){
+                var id = c.id||c.cardId||c.code||Math.random().toString(36).slice(2,8);
+                var code = c.code||c.card_no||c.cardNo||id;
+                var balance = c.count!==undefined?c.count:(c.balance!==undefined?c.balance:(c.amount||0));
+                var disabled = (c.isdel===1 || (c.status!==undefined && Number(c.status)!==1)) ? 'disabled' : '';
+                var sel = (currentCard && (String(currentCard.id)===String(c.id) || String(currentCard.code)===String(code))) ? 'selected' : '';
+                var $item = $('<div class="card-list-item '+disabled+' '+sel+'" data-id="'+id+'" data-code="'+code+'" data-balance="'+balance+'"></div>');
+                $item.append('<div><div style="font-weight:700">'+(c.title||c.name||('卡#'+code))+'</div><div class="muted" style="font-size:12px">卡号：'+code+'</div></div>');
+                $item.append('<div style="text-align:right"><div style="font-weight:800;color:var(--primary)">¥'+parseFloat(balance||0).toFixed(2)+'</div><div class="muted" style="font-size:12px">余额</div></div>');
+                $item.on('click keypress', function(e){
+                    if(e.type==='keypress' && e.which!==13) return;
+                    if($(this).hasClass('disabled')){ layer.msg('该卡不可用'); return; }
+                    $('.card-list-item').removeClass('selected');
+                    $(this).addClass('selected');
+                    var cid = $(this).data('id'), ccode = $(this).data('code'), cbalance = parseFloat($(this).data('balance')||0);
+                    currentCard = { id: cid, code: ccode, count: cbalance };
+                    updateMycardFabLabel();
+                    layer.msg('已选中卡 '+(ccode||cid), {icon:1, time:800});
+                });
+                $wrap.append($item);
+            });
+            $('#mycardCount').text('（'+userCards.length+'）');
+            updateMycardFabLabel();
+        }
+
+        function updateMycardFabLabel(){
+            if(currentCard){
+                var short = (currentCard.code || ('卡#'+currentCard.id));
+                $('#mycardFabLabel').text(short + ' ¥' + (parseFloat(currentCard.count||0).toFixed(0)));
+            } else {
+                $('#mycardFabLabel').text('我的卡');
+            }
+        }
+
+        $(function(){
+            loadProjectList({page:1,size:10});
+            refreshFab();
+            fetchCards(clientId, null, function(){});
+            // 初始放在右中偏上
+            var startLeft = Math.max(window.innerWidth - 90, window.innerWidth - 100);
+            $('#mycardFab').css({ left: (startLeft) + 'px', top: (window.innerHeight * 0.25) + 'px' });
+        });
+
+        // 拖拽实现（保留之前逻辑但修复 isDragging 范围）
+        (function() {
+            var mycardFab = document.getElementById('mycardFab');
+            var isDragging = false;
+            var startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
+            var dragThreshold = 5;
+            var moved = false;
+
+            function getStyleNumber(el, prop, fallback){
+                var v = window.getComputedStyle(el)[prop];
+                return parseFloat(v) || fallback || 0;
+            }
+
+            mycardFab.addEventListener('pointerdown', function(e) {
+                // only left button
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                isDragging = true;
+                moved = false;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = getStyleNumber(mycardFab, 'left', mycardFab.offsetLeft);
+                initialTop = getStyleNumber(mycardFab, 'top', mycardFab.offsetTop);
+                mycardFab.setPointerCapture(e.pointerId);
+                mycardFab.style.cursor = 'grabbing';
+                e.preventDefault();
+            }, { passive: false });
+
+            document.addEventListener('pointermove', function(e) {
+                if (!isDragging) return;
+                var dx = e.clientX - startX;
+                var dy = e.clientY - startY;
+                if (!moved && Math.hypot(dx, dy) >= dragThreshold) moved = true;
+                mycardFab.style.left = (initialLeft + dx) + 'px';
+                mycardFab.style.top = (initialTop + dy) + 'px';
+            }, { passive: false });
+
+            document.addEventListener('pointerup', function(e) {
+                if (!isDragging) return;
+                isDragging = false;
+                mycardFab.style.cursor = 'grab';
+                // 限制在可视窗口内
+                var rect = mycardFab.getBoundingClientRect();
+                var w = window.innerWidth, h = window.innerHeight;
+                var left = rect.left, top = rect.top;
+                if (left < 8) mycardFab.style.left = '8px';
+                if (top < 8) mycardFab.style.top = '8px';
+                if (rect.right > w - 8) mycardFab.style.left = (w - rect.width - 8) + 'px';
+                if (rect.bottom > h - 8) mycardFab.style.top = (h - rect.height - 8) + 'px';
+
+                // small snap to edges (x axis)
+                var finalRect = mycardFab.getBoundingClientRect();
+                var midX = finalRect.left + finalRect.width / 2;
+                if (midX < w / 2) {
+                    mycardFab.style.left = '8px';
+                } else {
+                    mycardFab.style.left = (w - finalRect.width - 8) + 'px';
+                }
+
+                // store position in localStorage
+                try {
+                    localStorage.setItem('mycardFabLeft', mycardFab.style.left);
+                    localStorage.setItem('mycardFabTop', mycardFab.style.top);
+                } catch (e) {}
+            });
+
+            // restore saved position
+            try {
+                var savedLeft = localStorage.getItem('mycardFabLeft');
+                var savedTop = localStorage.getItem('mycardFabTop');
+                if (savedLeft && savedTop) {
+                    $('#mycardFab').css({ left: savedLeft, top: savedTop });
+                }
+            } catch (e) {}
+
+            // expose moved flag to other handlers via property
+            Object.defineProperty(window, '__mycard_moved_flag__', {
+                get: function(){ return moved; }
+            });
+        })();
+
+        // 我的卡 悬浮开关（区分拖动与点击）
+        $('#mycardFab').on('click', function(e){
+            // If pointer dragged, ignore click activation
+            if (window.__mycard_moved_flag__) {
+                return;
+            }
+            e.stopPropagation();
+            var $panel = $('#mycardPanel');
+            if($panel.is(':visible')){ $panel.hide(); $(this).attr('aria-expanded','false'); }
+            else { $panel.show(); $(this).attr('aria-expanded','true'); }
+        });
+
+        // 点击页面空白区域关闭面板
+        $(document).on('click', function(e){
+            if(!$(e.target).closest('#mycardPanel').length && !$(e.target).closest('#mycardFab').length){
+                $('#mycardPanel').hide(); $('#mycardFab').attr('aria-expanded','false');
+            }
+            if(!$(e.target).closest('#fabPanel').length && !$(e.target).closest('#cartFab').length){
+                $('#fabPanel').hide(); $('#cartFab').attr('aria-expanded','false');
+            }
+        });
+
+        // mycardPanel 操作
+        $('#btnRefreshCards').on('click', function(){ fetchCards(clientId, null, function(){ layer.msg('已刷新'); }); });
+        $('#btnCloseCardPanel').on('click', function(){ $('#mycardPanel').hide(); $('#mycardFab').attr('aria-expanded','false'); });
+
+        // 购物球与面板
+        $('#cartFab').on('click', function(e){ e.stopPropagation(); var $panel = $('#fabPanel'); if($panel.is(':visible')){ $panel.hide(); $(this).attr('aria-expanded','false'); } else { $panel.show(); $(this).attr('aria-expanded','true'); } });
+        $('#fabPanel').on('click', function(e){ e.stopPropagation(); });
+
+        // 购物车操作
+        $(document).on('click','.btnAddCart',function(){ addToCart($(this).data('id'),1); });
+        $(document).on('click','.btnBuyNow',function(){
+            var id=$(this).data('id'); var p=projects.find(x=>x.id==id);
+            if(!p) return layer.msg('套餐不存在');
+            cart=[{projectId:p.id,name:p.name,price:parseFloat(p.price||p.amount||0),qty:1}]; refreshFab(); layer.msg('已选中 '+p.name);
+            openFabPanel();
+            if(window.matchMedia && window.matchMedia('(max-width:720px)').matches) $('html,body').animate({scrollTop:0},200);
+        });
+        $('#fabClear').on('click', function(){ layer.confirm('确定清空购物车？',function(i){ cart=[]; refreshFab(); layer.close(i); }); });
+        $('#btnApplyFilters').on('click', function(){ loadProjectList({page:1,size:10,name:$('#searchName').val(),status:$('#statusFilter').val()}); });
+        $('#searchName').on('keypress', function(e){ if(e.which===13) $('#btnApplyFilters').click(); });
+        $(document).on('change','.fab-qty', function(){ var idx=+$(this).data('idx'); var v=parseInt($(this).val())||1; if(v<1) v=1; cart[idx].qty=v; refreshFab(); });
+        $(document).on('click','.fab-remove', function(){ var idx=+$(this).data('idx'); cart.splice(idx,1); refreshFab(); });
+
+        function openFabPanel(){ $('#fabPanel').show(); $('#cartFab').attr('aria-expanded','true'); }
+        function closeFabPanel(){ $('#fabPanel').hide(); $('#cartFab').attr('aria-expanded','false'); }
+
+        // 结算
+        $('#fabCheckout').on('click', function(){
+            if(cart.length===0) return layer.msg('购物车为空');
+            var client = clientId;
+            if(!client) return layer.msg('请先登录');
+            var total = cart.reduce(function(s,it){return s+it.price*it.qty},0).toFixed(2);
+
+            var cardHtml = '';
+            if(!userCards || userCards.length===0){
+                // 不提供手动输入，直接提示办卡
+                cardHtml = '<div class="muted">您暂无可用会员卡，请充值或办卡后使用卡支付。</div>';
+            } else {
+                userCards.forEach(function(c){
+                    var balance = c.count!==undefined?parseFloat(c.count).toFixed(2):(c.balance!==undefined?parseFloat(c.balance).toFixed(2):(c.amount?parseFloat(c.amount).toFixed(2):'0.00'));
+                    var selected = currentCard && (String(currentCard.id)===String(c.id) || String(currentCard.code)===String(c.code)) ? 'selected' : '';
+                    var disabled = (c.isdel===1 || (c.status!==undefined && Number(c.status)!==1))? 'disabled':'';
+                    cardHtml += '<div class="card-option '+selected+' '+disabled+'" data-id="'+(c.id||'')+'" data-code="'+(c.code||'')+'" data-balance="'+balance+'"><div class="card-code">'+(c.code||('卡#'+(c.id||'')))+'</div><div class="card-balance-info">余额: ¥'+balance+'</div></div>';
+                });
+            }
+
+            var formHtml = '<div style="padding:12px 18px;"><form class="layui-form" id="fabBuyForm"><input type="hidden" name="buyType" id="fabBuyType" value="self"><div class="layui-form-item"><label class="layui-form-label" style="width:90px">支付方式</label><div class="layui-input-inline" style="width:180px"><select name="payMode" id="fabPayMode"><option value="online">在线支付</option><option value="card">使用会员卡</option></select></div></div><div id="cardArea" style="display:none;margin-bottom:6px"><label style="display:block;margin-bottom:6px;color:#666">选择会员卡（默认使用您已选卡）</label><div class="card-selector">'+cardHtml+'</div><div style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="hidden" id="fabCardCode" value=""/><input type="hidden" id="fabCardId" value=""/></div></div><div class="layui-form-item"><label class="layui-form-label" style="width:90px">备注</label><div class="layui-input-inline" style="width:180px"><input type="text" id="fabComments" class="layui-input"></div></div><div style="margin-top:8px;color:#333">合计：<strong style="color:#ff6b00">¥'+total+'</strong></div></form></div>';
+
+            var layerIdx = layer.open({
+                type:1,
+                title:'确认购买',
+                content: formHtml,
+                area: (window.matchMedia && window.matchMedia('(max-width:480px)').matches) ? ['92%','auto'] : ['640px','auto'],
+                btn: ['确认支付','取消'],
+                success: function(layero, idx){
+                    form.render(null,null);
+                    // 如果已有 currentCard，填充隐藏字段
+                    if(currentCard){
+                        $(layero).find('#fabCardCode').val(currentCard.code||'');
+                        $(layero).find('#fabCardId').val(currentCard.id||'');
+                        $(layero).find('.card-option').removeClass('selected');
+                        $(layero).find('.card-option[data-id="'+currentCard.id+'"]').addClass('selected');
+                    }
+                    $(layero).find('#fabPayMode').on('change', function(){
+                        if(this.value==='card') $(layero).find('#cardArea').show(); else $(layero).find('#cardArea').hide();
+                    });
+                    $(layero).find('#fabPayMode').trigger('change');
+
+                    // 允许在弹窗中选择卡（会更新 currentCard）
+                    $(layero).find('.card-option:not(.disabled)').on('click', function(){
+                        $(layero).find('.card-option').removeClass('selected');
+                        $(this).addClass('selected');
+                        var code = $(this).attr('data-code')||'', cid = $(this).attr('data-id')||'', balance = parseFloat($(this).attr('data-balance')||0);
+                        $(layero).find('#fabCardCode').val(code);
+                        $(layero).find('#fabCardId').val(cid);
+                        currentCard = { id: cid, code: code, count: balance };
+                        $('.card-list-item').removeClass('selected');
+                        $('.card-list-item[data-id="'+cid+'"]').addClass('selected');
+                        updateMycardFabLabel();
+                    });
+                },
+                yes: function(idx, layero){
+                    var buyType = $(layero).find('#fabBuyType').val();
+                    var payMode = $(layero).find('#fabPayMode').val();
+                    var cardCode = $(layero).find('#fabCardCode').val().trim();
+                    var cardId = $(layero).find('#fabCardId').val();
+                    var comments = $(layero).find('#fabComments').val().trim();
+
+                    if(payMode==='card'){
+                        // 现在必须使用 currentCard（或弹窗内选中的卡）
+                        if(!currentCard || !currentCard.id){
+                            layer.msg('您暂无可用会员卡，请充值或办卡'); return;
+                        }
+                        var available = parseFloat(currentCard.count || 0);
+                        if(available < parseFloat(total)){ layer.msg('卡余额不足，当前余额: ¥'+available.toFixed(2)); return; }
+                    }
+
+                    var payload = {
+                        cart: cart.map(function(it){ return { projectId: it.projectId, name: it.name, price: it.price, qty: it.qty }; }),
+                        buyType: buyType,
+                        clientId: clientId,
+                        payMode: payMode,
+                        cardCode: (payMode==='card' ? (currentCard ? currentCard.code : '') : ''),
+                        cardId: (payMode==='card' ? (currentCard ? currentCard.id : null) : null),
+                        comments: comments
+                    };
+
+                    layer.confirm('确认购买，合计：¥'+total+' 元？', {btn:['确认支付','取消']}, function(cidx){
+                        layer.close(cidx);
+                        var loader = layer.load(1);
+                        $.ajax({ url: api.purchase, method:'POST', contentType:'application/json', data: JSON.stringify(payload), dataType:'json', xhrFields:{withCredentials:true},
+                            success: function(res){
+                                layer.close(loader);
+                                var ok=false;
+                                if(res){
+                                    if(res.code!==undefined) ok=(res.code===0||res.code===200);
+                                    else if(res.success!==undefined) ok=(res.success===true);
+                                    else if(res.status!==undefined) ok=(res.status===0||res.status==='ok'||res.status==='success');
+                                    else ok=true;
+                                }
+                                if(ok){
+                                    layer.msg('购买成功');
+                                    cart=[]; refreshFab(); layer.close(layerIdx); $('#fabPanel').hide();
+                                    fetchCards(clientId, null, function(){});
+                                } else {
+                                    layer.msg(res && (res.msg||res.message) || '购买失败');
+                                }
+                            },
+                            error: function(){ layer.close(loader); layer.msg('购买失败'); }
+                        });
+                    });
+                }
+            });
+        });
+
+    });
+</script>
+</body>
+</html>

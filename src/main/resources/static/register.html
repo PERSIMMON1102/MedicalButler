@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>用户注册</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/layui@2.6.8/dist/css/layui.css">
+    <style>
+        :root{
+            --bg: #f4f7fb;
+            --card: #ffffff;
+            --primary: #4a90e2;
+            --primary-dark: #3578c6;
+            --muted: #6c757d;
+            --radius: 12px;
+            --error: #ff4d4f;
+        }
+        *{box-sizing: border-box; -webkit-tap-highlight-color: transparent;}
+        html,body{
+            height:100%;
+            margin:0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "PingFang SC", "Microsoft Yahei", sans-serif;
+            background: linear-gradient(180deg, #eef6ff 0%, var(--bg) 100%);
+            -webkit-font-smoothing:antialiased;
+            -moz-osx-font-smoothing:grayscale;
+        }
+        .wrap {
+            min-height:100%;
+            display:flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 16px;
+        }
+        .card {
+            width:100%;
+            max-width:420px;
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            box-shadow: 0 6px 20px rgba(47,60,80,0.08);
+        }
+        .brand {
+            display:flex;
+            align-items:center;
+            gap:12px;
+            margin-bottom: 22px;
+        }
+        .logo {
+            width:44px;
+            height:44px;
+            border-radius:10px;
+            background: linear-gradient(135deg,var(--primary),var(--primary-dark));
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#fff;
+            font-weight:700;
+            font-size:18px;
+            flex-shrink: 0;
+        }
+        .title {
+            font-size:20px;
+            font-weight:600;
+            color:#2b3a4a;
+            margin:0;
+        }
+        .subtitle {
+            font-size:13px;
+            color:var(--muted);
+            margin-top:4px;
+        }
+        .form-area {
+            margin-top: 10px;
+        }
+        .layui-form-label {
+            width: 100%;
+            font-size:15px;
+            font-weight: 500;
+            padding: 0 0 8px 0;
+            text-align: left;
+            color: #2b3a4a;
+        }
+        .layui-input {
+            border-radius:10px;
+            height:48px;
+            padding:0 16px;
+            border:1px solid #e6eef8;
+            background:#fbfdff;
+            font-size: 16px;
+            width: 100%;
+        }
+        .layui-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(74,144,226,0.2);
+        }
+        .layui-form-item {
+            margin-bottom: 20px;
+        }
+        .layui-input-block {
+            margin-left: 0;
+            width: 100%;
+        }
+        .submit-row {
+            margin-top: 24px;
+        }
+        .layui-btn {
+            width:100%;
+            height:50px;
+            border-radius:10px;
+            background:var(--primary);
+            border:none;
+            font-weight:600;
+            font-size: 16px;
+            box-shadow: 0 6px 18px rgba(74,144,226,0.14);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .layui-btn:active {
+            background: var(--primary-dark);
+        }
+        .helper {
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-top:16px;
+            gap:10px;
+            font-size:14px;
+            color:var(--muted);
+            flex-wrap: wrap;
+        }
+        .helper a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .divider {
+            height:1px;
+            background:linear-gradient(90deg, transparent, #eef3fb, transparent);
+            margin:20px 0;
+            border-radius:4px;
+        }
+
+        /* 验证码区域样式 */
+        .code-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .code-input {
+            flex: 1;
+        }
+        #sendCodeBtn {
+            width: 120px;
+            height: 48px;
+            border-radius: 10px;
+            background: #f5f7fa;
+            color: #333;
+            border: 1px solid #e6eef8;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+        #sendCodeBtn:active {
+            background: #e9ecf0;
+        }
+
+        /* 错误提示 */
+        .error-msg {
+            color: var(--error);
+            font-size: 13px;
+            margin-top: 6px;
+            display: none;
+        }
+        .input-error {
+            border-color: var(--error);
+        }
+
+        /* 移动设备优化 */
+        @media (max-width:480px){
+            .wrap {
+                padding: 16px;
+                align-items: flex-start;
+                padding-top: 40px;
+            }
+            .card {
+                padding:24px 20px;
+                border-radius:12px;
+            }
+            .brand {
+                margin-bottom: 20px;
+            }
+            .logo {
+                width: 42px;
+                height: 42px;
+                font-size: 17px;
+            }
+            .title {
+                font-size: 19px;
+            }
+            .subtitle {
+                font-size: 13px;
+            }
+            .layui-input {
+                height: 48px;
+                font-size: 16px;
+            }
+            .layui-btn {
+                height: 50px;
+            }
+            .helper {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            #sendCodeBtn {
+                width: 110px;
+                font-size: 13px;
+            }
+        }
+
+        /* 高屏幕设备优化 */
+        @media (min-height: 700px) {
+            .wrap {
+                padding-top: 60px;
+            }
+        }
+
+        @media (min-height: 800px) {
+            .wrap {
+                padding-top: 80px;
+            }
+        }
+
+        @media (min-height: 900px) {
+            .wrap {
+                padding-top: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+        <div class="brand">
+            <div class="logo">U</div>
+            <div>
+                <h1 class="title">用户注册</h1>
+                <div class="subtitle">创建您的账户，开始使用我们的服务</div>
+            </div>
+        </div>
+
+        <form class="layui-form form-area" id="registerForm">
+            <div class="layui-form-item">
+                <label class="layui-form-label">用户名</label>
+                <div class="layui-input-block">
+                    <input type="text" name="username" placeholder="可选：请输入用户名（用于显示）" class="layui-input" autocomplete="username">
+                    <div class="error-msg" id="username-error"></div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">密码</label>
+                <div class="layui-input-block">
+                    <input type="password" name="password" required lay-verify="required|pwd" placeholder="请输入密码（至少8位，包含字母和数字）" class="layui-input" autocomplete="new-password">
+                    <div class="error-msg" id="password-error"></div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">确认密码</label>
+                <div class="layui-input-block">
+                    <input type="password" name="confirmPassword" required lay-verify="required|confirmPwd" placeholder="请再次输入密码" class="layui-input" autocomplete="new-password">
+                    <div class="error-msg" id="confirmPassword-error"></div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">电话号码</label>
+                <div class="layui-input-block">
+                    <input type="tel" inputmode="tel" name="phone" required lay-verify="required|phone" placeholder="请输入电话号码" class="layui-input" autocomplete="tel">
+                    <div class="error-msg" id="phone-error"></div>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <label class="layui-form-label">验证码</label>
+                <div class="layui-input-block code-row">
+                    <input type="text" name="code" placeholder="短信验证码" class="layui-input code-input">
+                    <button type="button" class="layui-btn" id="sendCodeBtn">获取验证码</button>
+                </div>
+                <div class="error-msg" id="code-error"></div>
+            </div>
+
+            <div class="layui-form-item submit-row">
+                <button type="submit" class="layui-btn" id="submitBtn">注册</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="helper">
+                <div>已有账号？ <a href="./login.html">去登录</a></div>
+                <div style="font-size:13px; color:#9aa6b2;">注册即表示您同意<a href="#" style="color:var(--primary)">用户协议</a></div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/layui-src/dist/layui.js"></script>
+<script>
+    layui.use(['form','layer'], function() {
+        var form = layui.form;
+        var layer = layui.layer;
+        var $ = layui.jquery;
+
+        var $sendBtn = $('#sendCodeBtn');
+        var countdown = 60;
+        var timer = null;
+
+        // 输入验证函数
+        function validateField($field, validator, errorMsg) {
+            var value = $.trim($field.val());
+            var $error = $('#' + $field.attr('name') + '-error');
+
+            if (!validator(value)) {
+                $field.addClass('input-error');
+                $error.show().text(errorMsg);
+                return false;
+            } else {
+                $field.removeClass('input-error');
+                $error.hide();
+                return true;
+            }
+        }
+
+        // 手机号验证
+        function validatePhone(phone) {
+            return /^1[3-9]\d{9}$/.test(phone);
+        }
+
+        // 密码验证
+        function validatePassword(pass) {
+            return pass.length >= 8 && /[A-Za-z]/.test(pass) && /\d/.test(pass);
+        }
+
+        // 实时验证
+        $('input[name="phone"]').on('input', function() {
+            validateField($(this), validatePhone, '请输入有效的手机号');
+        });
+
+        $('input[name="password"]').on('input', function() {
+            validateField($(this), validatePassword, '密码至少8位，且包含字母和数字');
+
+            // 同时验证确认密码
+            var confirmPassword = $('input[name="confirmPassword"]').val();
+            if (confirmPassword) {
+                validateField($('input[name="confirmPassword"]'), function(val) {
+                    return val === $('input[name="password"]').val();
+                }, '两次输入的密码不一致');
+            }
+        });
+
+        $('input[name="confirmPassword"]').on('input', function() {
+            validateField($(this), function(val) {
+                return val === $('input[name="password"]').val();
+            }, '两次输入的密码不一致');
+        });
+
+        // 验证规则
+        form.verify({
+            pwd: [
+                /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/,
+                '密码至少8位，且包含字母和数字'
+            ],
+            confirmPwd: function(value){
+                var pwd = $('input[name="password"]').val();
+                if (value !== pwd) {
+                    return '两次输入的密码不一致';
+                }
+            },
+            phone: [
+                /^1[3-9]\d{9}$/,
+                '请输入有效的电话号码'
+            ]
+        });
+
+        function startCountdown() {
+            var left = countdown;
+            $sendBtn.prop('disabled', true).text(left + 's后重试');
+            timer = setInterval(function() {
+                left--;
+                if (left <= 0) {
+                    clearInterval(timer);
+                    $sendBtn.prop('disabled', false).text('获取验证码');
+                } else {
+                    $sendBtn.text(left + 's后重试');
+                }
+            }, 1000);
+        }
+
+        $sendBtn.on('click', function() {
+            if ($sendBtn.prop('disabled')) return;
+            var phone = $.trim($('input[name="phone"]').val());
+
+            if (!validatePhone(phone)) {
+                layer.msg('请输入有效的手机号码后再获取验证码', {icon:5});
+                $('input[name="phone"]').addClass('input-error');
+                $('#phone-error').show().text('请输入有效的手机号');
+                return;
+            }
+
+            $.ajax({
+                url: '/client/send-code',
+                method: 'POST',
+                data: { phone: phone },
+                success: function(res) {
+                    if (res && (res.code === 0 || res.status === 1)) {
+                        layer.msg('验证码已发送', {icon:1});
+                        startCountdown();
+                    } else {
+                        layer.msg((res && (res.message || res.msg)) || '发送失败', {icon:5});
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr && xhr.status === 401) {
+                        layer.msg('请先登录', {icon:5}, function(){ location.href = '/login.html'; });
+                    } else {
+                        layer.msg('发送失败，请稍后重试', {icon:5});
+                    }
+                }
+            });
+        });
+
+        // 提交注册
+        $('#registerForm').on('submit', function(e) {
+            e.preventDefault();
+
+            // 验证所有字段
+            var phoneValid = validateField($('input[name="phone"]'), validatePhone, '请输入有效的手机号');
+            var passwordValid = validateField($('input[name="password"]'), validatePassword, '密码至少8位，且包含字母和数字');
+            var confirmPasswordValid = validateField($('input[name="confirmPassword"]'), function(val) {
+                return val === $('input[name="password"]').val();
+            }, '两次输入的密码不一致');
+
+            var code = $.trim($('input[name="code"]').val());
+            var codeValid = true;
+            if (!code) {
+                $('input[name="code"]').addClass('input-error');
+                $('#code-error').show().text('请输入验证码');
+                codeValid = false;
+            } else {
+                $('input[name="code"]').removeClass('input-error');
+                $('#code-error').hide();
+            }
+
+            if (!(phoneValid && passwordValid && confirmPasswordValid && codeValid)) {
+                // 滚动到第一个错误
+                var $firstError = $('.input-error').first();
+                if ($firstError.length) {
+                    $('html, body').animate({
+                        scrollTop: $firstError.offset().top - 100
+                    }, 300);
+                }
+                return;
+            }
+
+            var postData = {
+                username: $.trim($('input[name="username"]').val()),
+                password: $('input[name="password"]').val(),
+                phone: $('input[name="phone"]').val(),
+                code: code
+            };
+
+            var $submit = $('#submitBtn');
+            $submit.prop('disabled', true).text('提交中...');
+
+            $.ajax({
+                url: '/client/register',
+                method: 'POST',
+                data: postData,
+                success: function(res) {
+                    $submit.prop('disabled', false).text('注册');
+                    if (res && (res.code === 0 || res.status === 1)) {
+                        layer.msg('注册成功，已跳转登录页', {icon:1, time:1200}, function(){
+                            location.href = '/login.html';
+                        });
+                    } else {
+                        var msg = (res && (res.message || res.msg)) || '注册失败';
+                        // 清理后端可能带的前缀
+                        msg = msg.replace('register.username: ', '');
+                        layer.msg(msg, {icon:5});
+                    }
+                },
+                error: function(xhr) {
+                    $submit.prop('disabled', false).text('注册');
+                    if (xhr && xhr.status === 401) {
+                        layer.msg('未登录或会话已过期', {icon:5}, function(){ location.href = '/login.html'; });
+                    } else {
+                        layer.msg('网络或服务器错误，请稍后重试', {icon:2});
+                    }
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>

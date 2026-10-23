@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link href="/layui/css/layui.css" rel="stylesheet">
+    <script src="/layui/layui.js"></script>
+    <script src="/js/echarts.min.js"></script>
+    <script src="/js/funs.js"></script>
+</head>
+<body >
+<div id="main" style="width:300px;height:200px;"></div>
+</body>
+
+<script>
+    var fm=new LayForm();
+fm.loaded=function(){
+       ajax_get("report",function(json){
+       //文本，数据
+            var titles=json.obj;
+            var data=json.data;
+            var d=[];
+            for(var i=0;i<titles.length;i++){
+                 for(var j=0;j<data.length;j++){
+                        if(data[j].status==i){
+                            d.push(data[j].id);
+                            break;
+                        }
+                  }
+            }
+
+              var chartDom = document.getElementById('main');
+var myChart = echarts.init(chartDom);
+var option;
+
+option = {
+  xAxis: {
+    type: 'category',
+    data: titles
+  },
+  yAxis: {
+    type: 'value'
+  },
+  series: [
+    {
+      data: d,
+      type: 'bar'
+    }
+  ]
+};
+
+option && myChart.setOption(option);
+
+
+
+       })
+}
+
+fm.init();
+
+
+
+</script>
+</html>

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>医学软件管理 - 管理员</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="../layui/css/layui.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 全局样式 */
+        :root {
+            --primary-color: #1E9FFF;
+            --primary-dark: #0d8aee;
+            --accent-color: #5B86E5;
+            --text-color: #333;
+            --text-light: #777;
+            --bg-light: #f8fafc;
+            --border-color: #eaeaea;
+            --card-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            --transition: all 0.25s ease;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", "Hiragino Sans GB", "Microsoft Yahei", Arial, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-color);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
+        .layui-layout-admin { min-height: 100vh; }
+
+        /* header */
+        .layui-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            height: 64px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .layui-logo { color: #fff; font-weight: 700; font-size: 20px; display:flex; align-items:center; gap:10px; }
+        .layui-logo i { font-size: 22px; }
+
+
+        .header-container { display:flex; align-items:center; justify-content:space-between; width:100%; }
+
+        .top-search { width: 300px; position: relative; }
+        .top-search input {
+            width:100%; height:36px; border-radius:20px; padding-left:40px;
+            background: rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.2); color:#fff;
+            transition: var(--transition); outline:none;
+        }
+        .top-search input::placeholder { color: rgba(255,255,255,0.75); }
+        .top-search i { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.85); pointer-events:none; }
+
+        .top-icon {
+            color: rgba(255,255,255,0.95); font-size:18px; cursor:pointer;
+            width:38px; height:38px; border-radius:50%;
+            display:inline-flex; align-items:center; justify-content:center;
+            transition: var(--transition); position:relative; flex-shrink:0;
+            background: transparent;
+        }
+        .top-icon:hover { background: rgba(255,255,255,0.12); }
+
+        .notification-badge {
+            position:absolute; top:-5px; right:-5px; background:#ff5722; color:#fff;
+            border-radius:50%; width:18px; height:18px; font-size:12px; display:flex; align-items:center; justify-content:center;
+        }
+
+        .user-info { display:inline-flex; align-items:center; gap:8px; cursor:pointer; padding:6px 10px; border-radius:20px; transition:var(--transition); }
+        .user-info:hover { background: rgba(255,255,255,0.12); }
+        .user-avatar { width:36px; height:36px; border-radius:50%; border:2px solid rgba(255,255,255,0.24); object-fit:cover; flex-shrink:0; }
+        .user-name { color:#fff; font-weight:500; }
+
+        /* sidebar */
+        .layui-side { width:260px; background:#fff; box-shadow:2px 0 10px rgba(0,0,0,0.05); transition: var(--transition); z-index:900; position:relative; }
+        .layui-side.layui-side-collapsed { width:70px; }
+
+        .site-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center; /* 添加这行使内容居中 */
+            gap: 10px;
+            text-align: center;
+            color: var(--primary-color);
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border-color);
+            padding: 18px 0; /* 如果需要增加垂直间距可以添加 */
+        }
+        .site-logo i { font-size:22px; }
+
+        .layui-side .layui-nav { background:none; padding:12px 0; }
+        .layui-side .layui-nav-item { margin:6px 0; position:relative; }
+
+        /* 链接布局：图标在左，文字右；使用 gap 保持间距 */
+        .layui-side .layui-nav-tree a {
+            display:flex; align-items:center; gap:12px; padding:12px 18px; color:var(--text-light); transition:var(--transition);
+        }
+
+        .layui-side .layui-nav-tree a .nav-icon {
+            width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; color:var(--primary-color); font-size:16px; flex-shrink:0;
+            margin-right: 0;
+        }
+
+        /* 默认子菜单：页面加载时收起 */
+        .layui-side .layui-nav-child {
+            display: none; /* 默认收起 */
+            background: rgba(245,247,250,0.98);
+            margin-top:6px; border-radius:6px; padding:6px 0;
+        }
+        .layui-side .layui-nav-child a { padding-left:56px; display:block; padding:10px 18px; color:var(--text-light); }
+
+        /* 当父项被标记 open 时显示子菜单（JS 控制 open class） */
+        .layui-side .layui-nav-item.open > .layui-nav-child { display:block; }
+
+        .layui-side .layui-nav-item a:hover { color:var(--primary-color); background: rgba(30,159,255,0.05); }
+        .layui-side .layui-nav-item.active > a {
+            color: var(--primary-color);
+            background: rgba(30,159,255,0.08);
+            border-right: 3px solid var(--primary-color);
+        }
+
+        /* 折叠态：隐藏文本，仅显示图标并使图标靠左 */
+        .layui-side.layui-side-collapsed .layui-nav-tree a > span { display: none; }
+        .layui-side.layui-side-collapsed .layui-nav-tree a { justify-content:flex-start; padding-left:14px; padding-right:14px; }
+        .layui-side.layui-side-collapsed .layui-nav-tree a .nav-icon { margin-right: 6px; }
+
+        /* 主体 */
+        .layui-body { background: var(--bg-light); padding:20px; transition: var(--transition); }
+        .content-wrap { max-width:1280px; margin:0 auto; }
+        .page-header {
+            display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;
+            background:#fff; padding:20px; border-radius:8px; box-shadow:var(--card-shadow);
+        }
+        .breadcrumb { color:var(--text-light); font-size:14px; margin-bottom:5px; }
+        .page-title { font-size:22px; font-weight:600; color:var(--text-color); display:flex; align-items:center; gap:10px; }
+        .page-description { color:var(--text-light); font-size:14px; margin-top:5px; }
+        .header-actions { display:flex; gap:10px; align-items:center; }
+
+        .panel { background:#fff; border-radius:8px; box-shadow:var(--card-shadow); overflow:hidden; }
+        #demoAdmin { width:100%; border:0; display:block; min-height:600px; border-radius:8px; }
+
+        .layui-footer { text-align:center; color:var(--text-light); background:transparent; padding:15px 0; font-size:13px; border-top:1px solid var(--border-color); }
+
+        /* 用户下拉：独立绝对定位 */
+        .user-dropdown {
+            position:absolute; right:16px; top:64px; background:#fff; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,0.12);
+            min-width:180px; z-index:1200; overflow:visible; display:none;
+        }
+        .user-dropdown a { display:flex; align-items:center; gap:8px; padding:10px 12px; color:#333; text-decoration:none; }
+        .user-dropdown a:hover { background: rgba(30,159,255,0.04); color: var(--primary-color); }
+
+        /* 响应 */
+        @media (max-width: 992px) {
+            .top-search { width:200px; }
+            .user-name { display:none; }
+        }
+        @media (max-width: 768px) {
+            .layui-side { position:fixed; transform:translateX(-100%); height:100%; box-shadow:5px 0 15px rgba(0,0,0,0.1); }
+            .layui-side.layui-side-show { transform:translateX(0); }
+            .layui-body { padding:15px; }
+            .page-header { flex-direction:column; align-items:flex-start; gap:12px; }
+            .header-actions { width:100%; justify-content:flex-end; }
+            .top-search { display:none; }
+            .user-dropdown { right:8px; top:56px; }
+        }
+
+        /* 动画 */
+        @keyframes fadeIn { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:translateY(0);} }
+        .fade-in { animation: fadeIn 0.45s ease forwards; }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width:6px; height:6px; }
+        ::-webkit-scrollbar-track { background:#f1f1f1; border-radius:10px; }
+        ::-webkit-scrollbar-thumb { background:#c1c1c1; border-radius:10px; }
+        ::-webkit-scrollbar-thumb:hover { background:var(--primary-color); }
+    </style>
+</head>
+<body>
+
+<div class="layui-layout layui-layout-admin">
+    <div class="layui-header">
+        <div class="header-container">
+<!--            <div class="layui-logo site-logo layui-hide-xs">-->
+<!--                <i class="fas fa-stethoscope"></i> 医学软件管理-->
+<!--            </div>-->
+
+            <div style="display:flex; align-items:center; gap:10px; width:100%; justify-content:space-between;">
+                <div class="header-left" style="display:flex; align-items:center; gap:10px;">
+                    <i class="layui-icon top-icon" id="btnToggleSide" title="折叠侧栏" aria-label="toggle sidebar">&#xe65f;</i>
+                    <div class="top-search">
+                        <i class="layui-icon">&#xe615;</i>
+                        <input class="layui-input" id="globalSearch" placeholder="全局搜索...">
+                    </div>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="position:relative;">
+                        <i class="layui-icon top-icon" id="btnNotifications" title="通知" aria-label="notifications">&#xe63a;</i>
+                        <span class="notification-badge">3</span>
+                    </div>
+
+                    <i class="layui-icon top-icon" id="btnQuickAdd" title="快速新增" aria-label="quick add">&#xe654;</i>
+
+                    <!-- 用户区域 -->
+                    <div id="userArea" style="position:relative;">
+                        <div class="user-info" id="userTrigger" aria-haspopup="true" aria-expanded="false">
+                            <img src="//unpkg.com/outeres@0.0.10/img/layui/icon-v2.png" class="user-avatar" alt="avatar">
+                            <span class="user-name">管理员</span>
+                            <i class="layui-icon" style="margin-left:5px;font-size:14px;">&#xe61a;</i>
+                        </div>
+                        <div class="user-dropdown" id="userDropdown" role="menu" aria-hidden="true">
+<!--                            <a href="javascript:;" id="openProfile"><i class="layui-icon">&#xe66f;</i> 个人中心</a>-->
+                            <a href="javascript:;" id="logoutBtn"><i class="layui-icon">&#xe682;</i> 退出登录</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 侧边栏 -->
+    <div class="layui-side layui-bg-white" id="sideBar">
+        <div class="layui-side-scroll">
+            <div class="site-logo layui-show-xs">
+                <i class="fas fa-stethoscope"></i> 医学管理
+            </div>
+
+            <ul class="layui-nav layui-nav-tree" lay-filter="left-nav">
+                <li class="layui-nav-item">
+                    <a href="javascript:;">
+                        <i class="nav-icon layui-icon">&#xe68e;</i>
+                        <span>仪表盘</span>
+                    </a>
+                    <dl class="layui-nav-child">
+                        <dd><a href="javascript:;" data-url="./index.html"><i class="layui-icon">&#xe60a;</i> 概览</a></dd>
+                    </dl>
+                </li>
+
+                <li class="layui-nav-item">
+                    <a href="javascript:;">
+                        <i class="nav-icon layui-icon">&#xe66c;</i>
+                        <span>套餐管理</span>
+                    </a>
+                    <dl class="layui-nav-child">
+                        <dd><a href="javascript:;" data-url="menu/menu.html"><i class="layui-icon">&#xe60a;</i> 套餐一览</a></dd>
+                    </dl>
+                </li>
+
+                <li class="layui-nav-item">
+                    <a href="javascript:;">
+                        <i class="nav-icon layui-icon">&#xe63c;</i>
+                        <span>检查项管理</span>
+                    </a>
+                    <dl class="layui-nav-child">
+                        <dd><a href="javascript:;" data-url="project/project.html"><i class="layui-icon">&#xe60a;</i> 检查项一览</a></dd>
+                    </dl>
+                </li>
+
+                <li class="layui-nav-item">
+                    <a href="javascript:;">
+                        <i class="nav-icon layui-icon">&#xe657;</i>
+                        <span>预约与订单管理</span>
+                    </a>
+                    <dl class="layui-nav-child">
+                        <dd><a href="javascript:;" data-url="order/order.html"><i class="layui-icon">&#xe60a;</i> 订单一览</a></dd>
+                    </dl>
+                </li>
+
+<!--                <li class="layui-nav-item">-->
+<!--                    <a href="javascript:;">-->
+<!--                        <i class="nav-icon layui-icon">&#xe64e;</i>-->
+<!--                        <span>用户回访</span>-->
+<!--                    </a>-->
+<!--                    <dl class="layui-nav-child">-->
+<!--                        <dd><a href="javascript:;" data-url="reservation/reservation.html"><i class="layui-icon">&#xe60a;</i>回访记录</a></dd>-->
+<!--                    </dl>-->
+<!--                </li>-->
+            </ul>
+        </div>
+    </div>
+
+    <!-- 主体 -->
+    <div class="layui-body">
+        <div class="content-wrap fade-in">
+            <div class="page-header">
+                <div>
+                    <div class="breadcrumb" id="breadcrumb">首页 / 仪表盘</div>
+                    <h1 class="page-title"><i class="fas fa-chart-line"></i> 系统概览</h1>
+                    <div class="page-description">欢迎回来，管理员 -- 快速管理你的系统</div>
+                </div>
+                <div class="header-actions">
+                    <button class="layui-btn layui-btn-primary" id="btnRefresh"><i class="layui-icon">&#xe669;</i> 刷新</button>
+                    <button class="layui-btn layui-btn-normal" id="btnFull"><i class="layui-icon">&#xe657;</i> 全屏</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <iframe src="./index.html" frameborder="0" id="demoAdmin"></iframe>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="../layui/layui.js"></script>
+<script>
+    layui.use(['element','layer','util','laypage','form'], function(){
+        var element = layui.element;
+        var layer = layui.layer;
+        var util = layui.util;
+        var $ = layui.$;
+
+        // 退出登录
+        function logout(){
+            layer.confirm('确定要退出登录吗？', {
+                title: '退出确认',
+                icon: 3,
+                btn: ['确定', '取消']
+            }, function(index){
+                layer.close(index);
+                localStorage.removeItem('token');
+                window.location.href = 'login.html';
+            });
+        }
+
+        // 绑定 logout btn（兼容在下拉内）
+        $('#logoutBtn').on('click', logout);
+
+        // 初始化：让侧栏子菜单默认收起
+        $('.layui-side .layui-nav-child').hide();
+        $('.layui-side .layui-nav-item').removeClass('layui-nav-itemed open');
+
+        // 侧栏折叠 / 展开（桌面）
+        var sideCollapsed = false;
+        function onSideToggle(collapsed){
+            if(collapsed){
+                // 折叠：隐藏文本（由 CSS 控制），同时确保所有子菜单被隐藏并移除 open 标记
+                $('.layui-side .layui-nav-child').hide();
+                $('.layui-side .layui-nav-item').removeClass('open');
+            } else {
+                // 展开：保持默认收起（用户点击父项再展开）
+                $('.layui-side .layui-nav-child').hide();
+                $('.layui-side .layui-nav-item').removeClass('open');
+            }
+        }
+
+        $('#btnToggleSide').on('click', function(){
+            sideCollapsed = !sideCollapsed;
+            if(sideCollapsed){
+                $('.layui-side').addClass('layui-side-collapsed');
+                onSideToggle(true);
+            } else {
+                $('.layui-side').removeClass('layui-side-collapsed');
+                onSideToggle(false);
+            }
+        });
+
+        // 侧栏父项点击：展开/收起子菜单（仅在未折叠时生效）
+        $('.layui-side .layui-nav > .layui-nav-item > a').on('click', function(e){
+            var $parent = $(this).parent();
+            var $child = $parent.children('.layui-nav-child').first();
+            if($child.length){
+                e.preventDefault();
+                if($('.layui-side').hasClass('layui-side-collapsed')) return; // 折叠时不展开
+                // 切换 open
+                if($parent.hasClass('open')){
+                    $parent.removeClass('open');
+                    $child.stop(true,true).slideUp(180);
+                } else {
+                    // 可选择先关闭其他 open（若需要 accordion 行为）
+                    // $('.layui-side .layui-nav-item.open').removeClass('open').children('.layui-nav-child').slideUp(120);
+                    $parent.addClass('open');
+                    $child.stop(true,true).slideDown(180);
+                }
+            }
+        });
+
+        // 移动端侧栏显示或快速新增弹窗
+        $('#btnQuickAdd').on('click', function(){
+            if(window.innerWidth < 768){
+                $('#sideBar').toggleClass('layui-side-show');
+            } else {
+                layer.open({
+                    title: '快速新增',
+                    area: ['420px', '340px'],
+                    content: '<div style="padding:18px;">' +
+                        '<div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; text-align:center;">' +
+                        '<div class="quick-action-btn" data-type="project" style="cursor:pointer; padding:12px; border-radius:6px; background:#f7fbff;"><i class="layui-icon" style="font-size:22px;">&#xe654;</i><div style="margin-top:6px;">新增套餐</div></div>' +
+                        '<div class="quick-action-btn" data-type="item" style="cursor:pointer; padding:12px; border-radius:6px; background:#f7fbff;"><i class="layui-icon" style="font-size:22px;">&#xe654;</i><div style="margin-top:6px;">新增检查项</div></div>' +
+                        '<div class="quick-action-btn" data-type="order" style="cursor:pointer; padding:12px; border-radius:6px; background:#f7fbff;"><i class="layui-icon" style="font-size:22px;">&#xe654;</i><div style="margin-top:6px;">新增订单</div></div>' +
+                        '<div class="quick-action-btn" data-type="user" style="cursor:pointer; padding:12px; border-radius:6px; background:#f7fbff;"><i class="layui-icon" style="font-size:22px;">&#xe654;</i><div style="margin-top:6px;">新增用户</div></div>' +
+                        '</div></div>'
+                });
+            }
+        });
+
+        // 顶部搜索回车
+        $('#globalSearch').on('keydown', function(e){
+            if(e.key === 'Enter'){
+                var q = $(this).val().trim();
+                if(!q){ layer.msg('请输入搜索关键词'); return; }
+                $('#demoAdmin').attr('src', './search.html?q=' + encodeURIComponent(q));
+                $('#breadcrumb').text('搜索 / ' + q);
+            }
+        });
+
+        // 侧栏子菜单链接点击：改变 iframe src 并更新面包屑
+        $('.layui-side-scroll .layui-nav-tree a[data-url]').on('click', function(e){
+            var url = $(this).data('url');
+            var text = $(this).text().trim();
+            if(url){
+                $('#demoAdmin').attr('src', url);
+                $('#breadcrumb').text('管理 / ' + text);
+                if(window.innerWidth < 768){
+                    $('#sideBar').removeClass('layui-side-show');
+                }
+                $('.page-title').html('<i class="fas fa-chart-line"></i> ' + text);
+            }
+        });
+
+        // 默认加载第一个子菜单项（如果你需要默认打开第一个内部页面）
+        var firstSub = $('.layui-side-scroll .layui-nav-tree .layui-nav-child a[data-url]').first();
+        if(firstSub.length>0){
+            $('#demoAdmin').attr('src', firstSub.data('url'));
+            $('#breadcrumb').text('管理 / ' + firstSub.text().trim());
+        }
+
+        // 刷新 iframe
+        $('#btnRefresh').on('click', function(){
+            var iframe = document.getElementById('demoAdmin');
+            try {
+                iframe.contentWindow.location.reload();
+            } catch (e) {
+                var src = $('#demoAdmin').attr('src');
+                $('#demoAdmin').attr('src', src);
+            }
+            layer.msg('已刷新', {icon:1, time:800});
+        });
+
+        // 全屏 iframe
+        $('#btnFull').on('click', function(){
+            var el = document.getElementById('demoAdmin');
+            if (el.requestFullscreen) { el.requestFullscreen(); }
+            else if (el.mozRequestFullScreen) { el.mozRequestFullScreen(); }
+            else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); }
+            else if (el.msRequestFullscreen) { el.msRequestFullscreen(); }
+        });
+
+        // 打开个人中心（iframe）
+        $('#openProfile').on('click', function(e){
+            e.preventDefault();
+            $('#demoAdmin').attr('src','./user-profile.html');
+            $('#breadcrumb').text('个人中心');
+            $('.page-title').html('<i class="fas fa-user-cog"></i> 个人中心');
+            hideUserDropdown();
+        });
+
+        // 通知按钮
+        $('#btnNotifications').on('click', function(){
+            layer.open({
+                title:'系统通知',
+                area: ['420px', '360px'],
+                content: '<div style="padding:14px;">' +
+                    '<div style="margin-bottom:12px;"><strong>系统更新通知</strong><div style="font-size:12px;color:#888;margin-top:6px;">2023-06-15 10:30</div><div style="margin-top:8px;color:#555;">系统将于今晚凌晨2点进行维护更新，预计耗时2小时。</div></div>' +
+                    '<div><strong>新订单提醒</strong><div style="font-size:12px;color:#888;margin-top:6px;">2023-06-15 09:15</div><div style="margin-top:8px;color:#555;">您有3个新订单需要处理。</div></div>' +
+                    '</div>'
+            });
+        });
+
+        // iframe 自适应高度
+        function adjustIframeHeight(){
+            var headerH = $('.layui-header').outerHeight() || 64;
+            var footerH = $('.layui-footer').outerHeight() || 40;
+            var winH = $(window).height();
+            var avail = winH - headerH - footerH - 80;
+            $('#demoAdmin').css('min-height', Math.max(avail, 360) + 'px');
+        }
+        adjustIframeHeight();
+        $(window).on('resize', adjustIframeHeight);
+
+        // 用户下拉逻辑（独立容器）
+        var $userTrigger = $('#userTrigger');
+        var $userDropdown = $('#userDropdown');
+
+        function showUserDropdown(){
+            var winW = $(window).width();
+            if(winW < 768){
+                $userDropdown.css({ right: 8, top: $('.layui-header').outerHeight() - 8 });
+            } else {
+                $userDropdown.css({ right: 16, top: $('.layui-header').outerHeight() });
+            }
+            $userDropdown.show();
+            $userTrigger.attr('aria-expanded','true');
+            $userDropdown.attr('aria-hidden','false');
+        }
+        function hideUserDropdown(){
+            $userDropdown.hide();
+            $userTrigger.attr('aria-expanded','false');
+            $userDropdown.attr('aria-hidden','true');
+        }
+
+        $userTrigger.on('click', function(e){
+            e.stopPropagation();
+            if($userDropdown.is(':visible')) hideUserDropdown();
+            else showUserDropdown();
+        });
+        $userDropdown.on('click', function(e){ e.stopPropagation(); });
+        $(document).on('click', function(){ hideUserDropdown(); });
+
+        // 点击快速新增中弹窗内按钮的代理
+        $(document).on('click', '.quick-action-btn', function(){
+            var type = $(this).data('type');
+            layer.msg('快速新增：' + type);
+            layer.closeAll('page');
+        });
+
+        // 窗口 resize 事件确保侧栏折叠/展开时子菜单状态一致
+        $(window).on('resize', function(){
+            if($('.layui-side').hasClass('layui-side-collapsed')){
+                $('.layui-side .layui-nav-child').hide();
+                $('.layui-side .layui-nav-item').removeClass('open');
+            } else {
+                $('.layui-side .layui-nav-child').hide();
+                $('.layui-side .layui-nav-item').removeClass('open');
+            }
+        }).trigger('resize');
+
+        // iframe 错误处理（可选）
+        $('#demoAdmin').on('error', function(){
+            $(this).attr('src','about:blank');
+        });
+    });
+</script>
+</body>
+</html>

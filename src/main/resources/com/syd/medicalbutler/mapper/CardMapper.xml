@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.syd.medicalbutler.mapper.CardMapper">
+
+    <resultMap id="BaseResultMap" type="com.syd.medicalbutler.pojo.Card">
+            <id property="id" column="id" />
+            <result property="code" column="code" />
+            <result property="count" column="count" />
+            <result property="tocount" column="tocount" />
+            <result property="projectId" column="project_id" />
+            <result property="createdate" column="createdate" />
+            <result property="clientId" column="client_id" />
+            <result property="status" column="status" />
+            <result property="price" column="price" />
+            <result property="userId" column="user_id" />
+            <result property="isdel" column="isdel" />
+            <result property="payinfoId" column="payinfo_id" />
+            <result property="complte" column="complte" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,code,count,tocount,project_id,createdate,
+        client_id,status,price,user_id,isdel,
+        payinfo_id,complte
+    </sql>
+</mapper>

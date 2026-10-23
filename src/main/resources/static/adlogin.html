@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+    <title>登录 - 医疗健康管理系统</title>
+
+    <script type="text/javascript" src="/layui/layui.js"></script>
+    <script type="text/javascript" src="/js/funs.js"></script>
+
+    <style>
+        /* 全局重置与文字渲染优化 */
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; font-family: "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+
+        body {
+            background-image: url('/pic/1.jpeg');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: #1f2937; /* 备用深色背景，增强对比 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        /* 卡片：更深更不透明以突出文字 */
+        .signinpanel {
+            width: 100%;
+            max-width: 460px;
+            background: rgba(12,18,28,0.78); /* 深色半透明，提升对比 */
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            border-radius: 14px;
+            box-shadow: 0 10px 40px rgba(2,6,23,0.7);
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .card {
+            background: transparent;
+            padding: 6px;
+            border-radius: 10px;
+        }
+
+        h4.no-margins {
+            margin: 0 0 14px 0;
+            color: rgba(255,255,255,0.96);
+            font-size: 22px;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 0.2px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+            margin-bottom: 18px;
+            opacity: 0.98;
+        }
+
+        .error-msg {
+            color: #ffd6d6;
+            background: rgba(180, 30, 30, 0.12);
+            border: 1px solid rgba(180,30,30,0.18);
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 12px;
+            display: none;
+        }
+
+        /* 输入框：更高对比度、更清晰的占位与光标 */
+        .form-control {
+            width: 100%;
+            height: 48px;
+            padding: 0 14px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.02);
+            color: rgba(255,255,255,0.96);
+            outline: none;
+            transition: all 0.16s ease;
+            font-size: 15px;
+            font-weight: 500;
+            caret-color: #9be0ff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .form-control::placeholder { color: rgba(255,255,255,0.66); font-weight: 400; }
+
+        .form-control:focus {
+            box-shadow: 0 8px 26px rgba(45,150,255,0.12);
+            border-color: rgba(80,170,255,0.95);
+            background: rgba(255,255,255,0.015);
+        }
+
+        .input-group { position: relative; }
+
+        .input-group .icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.82);
+            font-size: 15px;
+            pointer-events: none;
+        }
+
+        .form-control.with-icon { padding-left: 44px; }
+
+        .btn {
+            width: 100%;
+            height: 48px;
+            border: none;
+            border-radius: 10px;
+            color: #062233;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 15px;
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+            background: linear-gradient(90deg, #66c2ff, #2fa8ff);
+            box-shadow: 0 8px 22px rgba(47,150,255,0.18);
+        }
+
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .small-link {
+            display: block;
+            margin-top: 10px;
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            font-size: 13px;
+        }
+
+        @media (max-width:420px) {
+            .signinpanel { padding: 18px; border-radius: 10px; }
+            .form-control { height: 44px; font-size: 15px; }
+            h4.no-margins { font-size: 20px; }
+        }
+    </style>
+</head>
+<body class="signin">
+<div class="signinpanel">
+    <div class="card">
+        <h4 class="no-margins">医疗健康管理系统</h4>
+        <div class="subtitle">管理员登录入口</div>
+
+        <div id="error" class="error-msg"></div>
+
+        <form id="loginForm" method="post" autocomplete="off" onsubmit="return false;">
+            <div class="input-group">
+                <span class="icon">👤</span>
+                <input type="text" name="name" class="form-control with-icon uname" placeholder="用户名" />
+            </div>
+
+            <div class="input-group">
+                <span class="icon">🔒</span>
+                <input type="password" name="pass" class="form-control with-icon pword" placeholder="密码" />
+            </div>
+
+            <button id="submitBtn" class="btn" type="button">登录 管理员</button>
+
+            <a class="small-link" href="javascript:void(0)" id="forgot">忘记密码？</a>
+        </form>
+    </div>
+</div>
+
+<script type="text/javascript">
+    var $;
+    var layer;
+    layui.use(["jquery","layer"], function(){
+        $ = layui.jquery;
+        layer = layui.layer;
+
+        var $form = $("#loginForm");
+        var $btn = $("#submitBtn");
+        var $error = $("#error");
+
+        function showError(msg){
+            $error.text(msg).fadeIn(150);
+            setTimeout(function(){ $error.fadeOut(300); }, 5000);
+        }
+
+        function disableBtn(yes){
+            if(yes){
+                $btn.prop("disabled", true).text("登录中...");
+            }else{
+                $btn.prop("disabled", false).text("登录 管理员");
+            }
+        }
+
+        $form.on("keydown", function(e){
+            if(e.key === "Enter"){
+                e.preventDefault();
+                $btn.trigger("click");
+            }
+        });
+
+        $btn.on("click", function(){
+            var name = $.trim($("[name=name]").val());
+            var pass = $.trim($("[name=pass]").val());
+
+            if(!name){
+                showError("请输入用户名");
+                $("[name=name]").focus();
+                return;
+            }
+            if(!pass){
+                showError("请输入密码");
+                $("[name=pass]").focus();
+                return;
+            }
+
+            disableBtn(true);
+
+            ajax_post("/user/login", {name: name, pass: pass}, function(json){
+                disableBtn(false);
+                console.log("login resp:", json);
+
+                if(!json){
+                    showError("服务端未返回数据");
+                    return;
+                }
+
+                // 兼容：真实信息可能在顶层，也可能在 data[0]
+                var payload = null;
+                if(Array.isArray(json.data) && json.data.length > 0){
+                    payload = json.data[0];
+                } else {
+                    payload = json;
+                }
+
+                // 规范 status（判断登录是否成功）
+                var statusRaw = (payload && (typeof payload.status !== "undefined" ? payload.status : json.status));
+                var statusNum = parseInt(statusRaw, 10);
+                if(isNaN(statusNum)){
+                    // 如果没有数值型 status，尝试按常见字段判断（如 code 或 success）
+                    if(typeof json.code !== "undefined"){
+                        statusNum = parseInt(json.code, 10) || 0;
+                    } else if(typeof json.success !== "undefined"){
+                        statusNum = (json.success ? 1 : 0);
+                    } else {
+                        statusNum = 0; // 保守处理为失败
+                    }
+                }
+
+                // 优先从 payload.user.power 读取，其次 payload.power，再退回到顶层 json.user.power / json.power
+                var powerRaw;
+                if(payload && payload.user && typeof payload.user.power !== "undefined"){
+                    powerRaw = payload.user.power;
+                } else if(payload && typeof payload.power !== "undefined"){
+                    powerRaw = payload.power;
+                } else if(json && json.user && typeof json.user.power !== "undefined"){
+                    powerRaw = json.user.power;
+                } else {
+                    powerRaw = json.power;
+                }
+
+                // 规范 power 字段（后端可能为 "0"/"1" 或 0/1 或 true/false）
+                var powerNum = null;
+                if(typeof powerRaw !== "undefined" && powerRaw !== null){
+                    if(typeof powerRaw === "boolean"){
+                        powerNum = powerRaw ? 1 : 0;
+                    } else {
+                        var tmp = parseInt(powerRaw, 10);
+                        if(!isNaN(tmp)){
+                            powerNum = tmp;
+                        } else {
+                            var str = String(powerRaw).toLowerCase();
+                            if(str === "true") powerNum = 1;
+                            else if(str === "false") powerNum = 0;
+                        }
+                    }
+                }
+
+                console.log("parsed status:", statusNum, "parsed power:", powerNum, "raw power:", powerRaw);
+
+                if(statusNum && statusNum > 0){
+                    // 如果你希望登录成功后不论权限都跳转管理员页，直接用： location.href = "/Admin/admin.html";
+                    // 这里我们采用常见策略：只有 power === 1 允许进入管理员页
+                    if(powerNum === null){
+                        // 当缺少权限字段时，优先提示并打印完整 payload 供调试
+                        console.warn("缺少可解析的 power 字段，payload:", payload);
+                        showError(payload && payload.msg ? payload.msg : json.msg || "没有权限字段，无法判断管理员权限。");
+                        return;
+                    }
+
+                    if(powerNum === 1){
+                        location.href = "/Admin/admin.html";
+                    } else {
+                        showError(payload && payload.msg ? payload.msg : json.msg || "该账号没有管理员权限。");
+                    }
+                } else {
+                    showError(payload && payload.msg ? payload.msg : json.msg || "登录失败，请检查用户名和密码");
+                }
+            }, function(err){
+                disableBtn(false);
+                showError("请求失败，请稍后重试");
+                console.error("ajax error:", err);
+            });
+        });
+
+        $("#forgot").on("click", function(){
+            layer.open({
+                title: "找回密码",
+                content: "请联系系统管理员或通过工单重置密码。"
+            });
+        });
+    });
+</script>
+</body>
+</html>

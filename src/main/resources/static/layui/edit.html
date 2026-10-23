@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+<link href="/layui/css/layui.css" rel="stylesheet">
+<script type="text/javascript" src="/layui/layui.js"></script>
+<script type="text/javascript" src="/js/funs.js"></script>
+</head>
+<body>
+<div class="layui-card layui-row ">
+
+		<div class="layui-card-body">
+			<div class="layui-col-md6">
+
+				<form class="layui-form"  lay-filter="myform"  >
+					<input type="hidden" name="id" >
+
+					<div class="layui-card">
+						<div class="layui-card-body layui-row ">
+						<div class="layui-col-xs12">
+								<label class="field_lable ">名称</label>
+								<input type="text"
+									name="name" autocomplete="off" class="layui-input" lay-verify="required">
+							</div>
+							<div class="layui-col-xs6">
+								<label class="field_lable ">性别</label>
+								<select name="sex">
+								</select>
+							</div>
+							<div class="layui-col-xs6">
+								<label class="field_lable ">部门</label>
+								<select name="department_id">
+								</select>
+							</div>
+						</div>
+					</div>
+
+
+					<div class="layui-form-item layui-layout-admin">
+						<div class="layui-input-block">
+							<div class="layui-footer" style="left: 0;text-align: center;">
+								<button class="layui-btn" lay-submit lay-filter="save">保存</button>
+							</div>
+						</div>
+					</div>
+
+
+				</form>
+
+			</div>
+		</div>
+	</div>
+<script type="text/javascript">
+var id=getParam("id");
+var fm=new LayForm();
+fm.onSubmit=function(data){
+	 var url="insert";
+	 if(id)url="update";
+	  ajax_post(url,data,function(json){
+		  if(json.status>0){
+			  closeLayer();
+			  parent.fresh();
+		  }else{
+			  openAlert(json.msg)
+		  }
+	  })
+}
+fm.loaded=function(){
+	ajax_array(fm,$("[name=sex]"),"getarray?name=User_sexs",0);
+	ajax_list(fm,$("[name=department_id]"),"/Department/list",0);
+	 if(id){
+		 ajax_get("getById?id="+id,function(json){
+			 fm.setval(json);
+			 fm.render(); 
+		 })
+		
+	 }else{
+		 fm.render();  
+	 }
+}
+
+fm.init();
+</script>
+
+</body>
+</html>

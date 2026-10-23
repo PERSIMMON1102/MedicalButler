@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>订单管理（优化版）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="../../layui/css/layui.css" rel="stylesheet">
+    <style>
+        body{ padding:12px; background:#f5f7fa; font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+        .tool-bar{ margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .search-row{ display:flex; gap:8px; align-items:center; flex:1; min-width:240px; }
+        .ellipsis{ max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:inline-block; vertical-align:middle; }
+        .status-badge{ padding:4px 8px; border-radius:12px; color:#fff; font-size:12px; display:inline-block; }
+        .status-pending{ background:#FFB800; }
+        .status-paid{ background:#009688; }
+        .status-completed{ background:#1E9FFF; }
+        .status-canceled{ background:#999; }
+        @media (max-width:720px){
+            .search-row{ width:100%; }
+        }
+        /* 详情样式 */
+        .order-detail { padding:16px; max-width:900px; margin:0 auto; }
+        .order-row{ display:flex; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
+        .order-row .label{ width:120px; color:#666; flex:0 0 120px; }
+        .order-row .value{ color:#333; flex:1; min-width:120px; }
+        .item-row{ padding:10px 12px; border:1px solid #eef1f6; border-radius:6px; margin-bottom:8px; background:#fff; }
+        .item-row .item-title{ font-weight:600; margin-bottom:6px; color:#333; }
+        .item-row .item-info{ color:#666; font-size:13px; margin-bottom:8px; white-space:pre-wrap; }
+        .item-row textarea{ width:100%; min-height:64px; resize:vertical; }
+        .main-info-area textarea{ width:100%; min-height:90px; resize:vertical; }
+        .detail-actions{ display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+    </style>
+</head>
+<body>
+
+<div class="tool-bar">
+    <div class="search-row">
+        <input type="text" id="searchText" class="layui-input" placeholder="按订单ID/用户姓名/项目名搜索" style="width:260px;">
+        <select id="filterStatus" class="layui-select" style="width:160px;">
+            <option value="">全部状态</option>
+            <option value="pending">待支付</option>
+            <option value="paid">已支付</option>
+            <option value="completed">已完成</option>
+            <option value="canceled">已取消</option>
+        </select>
+        <input type="text" id="dateRange" class="layui-input" placeholder="时间范围" style="width:220px;">
+        <button class="layui-btn" id="btnSearch"><i class="layui-icon">&#xe615;</i> 搜索</button>
+    </div>
+
+    <div style="margin-left:auto; display:flex; gap:8px;">
+        <button class="layui-btn" id="btnExport">导出（当前筛选）</button>
+        <button class="layui-btn layui-btn-primary" id="btnExportSelected">导出选中</button>
+    </div>
+</div>
+
+<table id="orderTable" lay-filter="orderTableFilter"></table>
+
+<!-- 操作模板（内联） -->
+<script type="text/html" id="orderToolbar">
+    <a class="layui-btn layui-btn-xs" lay-event="detail">详情</a>
+    <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="status">修改状态</a>
+    <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+
+<!-- 订单详情弹窗 DOM -->
+<div id="orderDetailBox" style="display:none;">
+    <div class="order-detail" id="orderDetailContent">
+        <!-- 动态内容填充 -->
+    </div>
+    <div style="text-align:right; margin-top:12px;">
+        <!-- 只保留一个关闭按钮，右下角关闭 -->
+        <button class="layui-btn" id="closeOrderDetail">关闭</button>
+    </div>
+</div>
+
+<script src="../../layui/layui.js"></script>
+<script>
+    layui.use(['table','layer','form','laydate','jquery'], function(){
+        var table = layui.table, layer = layui.layer, laydate = layui.laydate, $ = layui.$;
+
+        // 固定四个状态文本
+        const STATIC_STATUS = ["空闲","预约","签到","咨询"];
+
+        var API = {
+            list: '/order',
+            get: '/order/',
+            save: '/order/',
+            updateStatus: '/order/',
+            remove: '/order/',
+            export: '/order/export'
+        };
+
+        // 简单请求封装
+        function request(opts){
+            var settings = $.extend({
+                method: 'GET',
+                dataType: 'json',
+                contentType: 'application/json'
+            }, opts || {});
+            if(settings.contentType === 'application/json' && settings.data && typeof settings.data !== 'string'){
+                settings.data = JSON.stringify(settings.data);
+            }
+            return $.ajax(settings);
+        }
+
+        // 时间范围选择
+        laydate.render({ elem: '#dateRange', type: 'date', range: true, theme: '#1E9FFF' });
+
+        // 防抖工具
+        function debounce(fn, wait){
+            var t;
+            return function(){
+                var ctx = this, args = arguments;
+                clearTimeout(t);
+                t = setTimeout(function(){ fn.apply(ctx, args); }, wait);
+            };
+        }
+
+        // 状态显示映射（后台直接返回 status，前端显示固定文本）
+        function renderStatus(status){
+            var cls = 'status-badge ';
+            var text = (status !== undefined && status !== null) ? String(status) : '';
+            switch(String(status)){
+                case 'pending': cls += 'status-pending'; text = '待支付'; break;
+                case 'paid': cls += 'status-paid'; text = '已支付'; break;
+                case 'completed': cls += 'status-completed'; text = '已完成'; break;
+                case 'canceled': cls += 'status-canceled'; text = '已取消'; break;
+                default:
+                    if(status >=0 && status < STATIC_STATUS.length){
+                        text = STATIC_STATUS[Number(status)];
+                        cls += 'status-canceled';
+                    } else {
+                        cls += 'status-canceled'; text = status;
+                    }
+                    break;
+            }
+            return '<span class="'+ cls +'">'+ (text || '-') +'</span>';
+        }
+
+        // 表格渲染
+        var tableId = 'orderTable';
+        var tableIns = table.render({
+            elem: '#'+tableId,
+            cols: [[
+                {type:'checkbox', fixed:'left'},
+                {field:'id', title:'订单ID', width:180, templet:function(d){ return '<span class="ellipsis" title="'+ escapeHtml(d.id) +'">' + escapeHtml(d.id) + '</span>'; }},
+                {field:'main_id', title:'主订单ID', width:150, templet:function(d){ return d.main_id? '<span class="ellipsis" title="'+ escapeHtml(d.main_id) +'">'+ escapeHtml(d.main_id) +'</span>' : '-'; }},
+                {field:'clientName', title:'用户姓名', width:120, templet:function(d){ return escapeHtml(d.clientName || '-'); }},
+                {field:'item_name', title:'项目', minWidth:220, templet:function(d){ return '<span class="ellipsis" title="'+ escapeHtml(d.item_name||'') +'">'+ escapeHtml(d.item_name||'') +'</span>'; }},
+                {field:'date', title:'预约时间', width:180},
+                {field:'status', title:'状态', width:110, align:'center', templet:function(d){ return renderStatus(d.status); }},
+                {field:'comment', title:'备注', minWidth:140, templet:function(d){ return d.comment? '<span title="'+ escapeHtml(d.comment) +'">'+ escapeHtml(d.comment) +'</span>' : '-'; }},
+                {title:'操作', toolbar:'#orderToolbar', width:240, align:'center'}
+            ]],
+            page: true, limit: 12, height: 'full-180',
+            url: API.list, method: 'get',
+            parseData: function(res){
+                if(res && res.code === 0 && res.data){
+                    var data = res.data.records || res.data;
+                    var total = res.data.total || (Array.isArray(data) ? data.length : 0);
+                    return { "code": 0, "msg": res.msg || '', "count": total, "data": data };
+                }
+                return { "code": res && res.code || 1, "msg": res && res.msg || '加载失败', "count": 0, "data": [] };
+            },
+            request: { pageName: 'page', limitName: 'size' },
+            text: { none: '暂无订单' }
+        });
+
+        // 搜索（防抖）
+        var doSearch = debounce(function(){
+            table.reload(tableId, { where: { q: $('#searchText').val(), status: $('#filterStatus').val(), range: $('#dateRange').val() }, page: { curr: 1 } });
+        }, 300);
+
+        $('#btnSearch').on('click', doSearch);
+        $('#searchText').on('keyup', function(e){ if(e.key === 'Enter' || e.keyCode === 13) doSearch(); });
+
+        // 导出（当前筛选）
+        $('#btnExport').on('click', function(){
+            var params = { q: $('#searchText').val(), status: $('#filterStatus').val(), range: $('#dateRange').val() };
+            var $form = $('<form method="POST" action="' + API.export + '"></form>');
+            $form.append('<input type="hidden" name="params" value=\'' + escapeHtml(JSON.stringify(params)) + '\'>');
+            $('body').append($form);
+            $form.submit();
+            $form.remove();
+            layer.msg('导出请求已发起，视后端处理时间而定', {icon: 1, time: 2000});
+        });
+
+        // 导出选中
+        $('#btnExportSelected').on('click', function(){
+            var data = table.checkStatus(tableId).data;
+            if(!data || data.length === 0){ layer.msg('请先选择要导出的订单'); return; }
+            var ids = data.map(function(i){ return i.id; });
+            var $form = $('<form method="POST" action="' + API.export + '"></form>');
+            $form.append('<input type="hidden" name="ids" value=\'' + escapeHtml(JSON.stringify(ids)) + '\'>');
+            $('body').append($form);
+            $form.submit();
+            $form.remove();
+            layer.msg('导出选中订单请求已发起', {icon:1, time:1500});
+        });
+
+        // 表格操作
+        table.on('tool(orderTableFilter)', function(obj){
+            var d = obj.data, e = obj.event;
+            if(e === 'detail'){ openDetail(d.id); }
+            else if(e === 'status'){ promptStatusChange(d); }
+            else if(e === 'del'){ confirmDelete(d); }
+        });
+
+        // 打开详情
+        var detailIndex = null;
+
+        function openDetail(id){
+            $('#orderDetailContent').html('<div style="padding:20px;text-align:center;color:#888;">加载中...</div>');
+            detailIndex = layer.open({ type:1, title:'订单详情', area:['92%','80%'], maxWidth:'900px', content: $('#orderDetailBox') });
+
+            request({ url: API.get + id, method: 'GET' })
+                .done(function(res){
+                    if(!res || res.code !== 0 || !res.data){
+                        $('#orderDetailContent').html('<div style="padding:20px;color:#c00;">加载失败</div>');
+                        return;
+                    }
+                    var d = res.data;
+                    var html = [];
+
+                    // 基本信息
+                    html.push('<div class="order-row"><div class="label">订单ID：</div><div class="value">' + escapeHtml(d.id||'') + '</div></div>');
+                    html.push('<div class="order-row"><div class="label">主订单ID：</div><div class="value">' + escapeHtml(d.main_id||'-') + '</div></div>');
+                    // 用户姓名替代用户ID显示
+                    html.push('<div class="order-row"><div class="label">用户姓名：</div><div class="value">' + escapeHtml(d.clientName||'-') + '</div></div>');
+                    html.push('<div class="order-row"><div class="label">项目：</div><div class="value">' + escapeHtml(d.project_name||d.item_name||'-') + '</div></div>');
+                    html.push('<div class="order-row"><div class="label">预约时间：</div><div class="value">' + escapeHtml(d.date||'-') + '</div></div>');
+
+                    // 主诊断/备注
+                    html.push('<div class="order-row main-info-area"><div class="label">主诊断/备注：</div><div class="value"><textarea id="mainInfoTextarea" placeholder="填写诊断意见或备注">' + escapeHtml(d.info || d.comment || '') + '</textarea></div></div>');
+
+                    // 附件
+                    if(d.pic){
+                        html.push('<div class="order-row"><div class="label">附件：</div><div class="value"><img src="'+ escapeHtml(d.pic) +'" alt="附件" style="max-width:240px;cursor:pointer;border-radius:6px;" id="order-detail-pic"></div></div>');
+                    }
+
+                    // 子检查项列表
+                    html.push('<div style="margin-top:12px;"><div style="font-weight:700;margin-bottom:8px;color:#333;">子检查项</div>');
+                    var items = d.items || [];
+                    var details = d.details || [];
+                    var detailMapByItem = {};
+                    var detailMapById = {};
+                    for(var i=0;i<details.length;i++){
+                        var dt = details[i];
+                        if(dt.itemId != null) detailMapByItem[dt.itemId] = dt;
+                        if(dt.id != null) detailMapById[dt.id] = dt;
+                    }
+                    if(items.length === 0){
+                        html.push('<div style="color:#888;padding:12px;background:#fff;border:1px dashed #eef1f6;border-radius:6px;">该项目暂无子检查项</div>');
+                    } else {
+                        for(var j=0;j<items.length;j++){
+                            var it = items[j];
+                            var existDetail = detailMapByItem[it.id] || {};
+                            var commentVal = existDetail.comment || '';
+                            var detailIdVal = existDetail.id != null ? existDetail.id : '';
+                            html.push('<div class="item-row" data-itemid="'+ escapeHtml(it.id) +'" data-detailid="'+ escapeHtml(detailIdVal) +'">');
+                            html.push('<div class="item-title">' + escapeHtml(it.name || ('子项 ' + it.id)) + '</div>');
+                            if(it.info) html.push('<div class="item-info">' + escapeHtml(it.info) + '</div>');
+                            if(it.pic) html.push('<div style="margin-bottom:8px;"><img src="'+ escapeHtml(it.pic) +'" style="max-width:160px;border-radius:6px;cursor:pointer;" class="item-pic"></div>');
+                            html.push('<div><textarea class="item-comment" placeholder="此处填写该子检查项的诊断意见或备注">' + escapeHtml(commentVal) + '</textarea></div>');
+                            html.push('</div>');
+                        }
+                    }
+                    html.push('</div>');
+
+                    // 保存按钮区
+                    html.push('<div class="detail-actions"><button class="layui-btn layui-btn-normal" id="btnSaveDiagnosis">保存诊断</button><button class="layui-btn layui-btn-primary" id="btnCloseDetail2">关闭</button></div>');
+
+                    $('#orderDetailContent').html(html.join(''));
+
+                    // 绑定图片预览
+                    $('#order-detail-pic').on('click', function(){
+                        layer.photos({ photos: { data: [{src: d.pic}] }, anim: 5 });
+                    });
+                    $('.item-pic').on('click', function(){
+                        var src = $(this).attr('src');
+                        layer.photos({ photos: { data: [{src: src}] }, anim: 5 });
+                    });
+
+                    // 关闭按钮绑定
+                    $('#btnCloseDetail2').off('click').on('click', function(){ if(detailIndex) layer.close(detailIndex); });
+
+                    // 保存诊断按钮事件
+                    $('#btnSaveDiagnosis').off('click').on('click', function(){
+                        var mainId = d.main_id || d.id;
+                        if(!mainId){
+                            layer.msg('无法识别主订单ID', {icon:2});
+                            return;
+                        }
+                        var mainInfo = $('#mainInfoTextarea').val();
+
+                        // 收集每个子项的 comment
+                        var detailsToSave = [];
+                        $('#orderDetailContent .item-row').each(function(){
+                            var $row = $(this);
+                            var itemId = $row.attr('data-itemid');
+                            var detailId = $row.attr('data-detailid') || null;
+                            var comment = $row.find('.item-comment').val();
+                            detailsToSave.push({
+                                id: detailId ? (detailId|0) : null,
+                                itemId: itemId ? (itemId|0) : null,
+                                comment: comment
+                            });
+                        });
+
+                        var detailTargetId = d.id || mainId;
+                        var url = API.save + detailTargetId + '/save';
+                        var payload = { mainId: mainId, info: mainInfo, details: detailsToSave };
+
+                        request({
+                            url: url,
+                            method: 'POST',
+                            data: payload
+                        }).done(function(resp){
+                            if(resp && resp.code === 0){
+                                layer.msg('保存成功', {icon:1});
+                                table.reload(tableId);
+                                setTimeout(function(){ openDetail(d.id || mainId); }, 600);
+                            } else {
+                                layer.msg(resp && resp.msg || '保存失败', {icon:2});
+                            }
+                        }).fail(function(){
+                            layer.msg('网络错误，保存失败', {icon:2});
+                        });
+
+                    });
+
+                })
+                .fail(function(){
+                    $('#orderDetailContent').html('<div style="padding:20px;color:#c00;">网络错误</div>');
+                });
+        }
+
+        // 关闭按钮
+        $('#closeOrderDetail').on('click', function(){ if(detailIndex) layer.close(detailIndex); });
+
+        // 修改状态：改为固定四项的下拉选择
+        var statusChanging = false;
+        function promptStatusChange(row){
+            if(statusChanging) return;
+            var html = '<div style="padding:12px; min-width:260px;">' +
+                '<label>设置新状态：</label>' +
+                '<select id="newStatusSelect" style="width:100%; margin-top:6px;">';
+            STATIC_STATUS.forEach(function(s, idx){
+                var selected = (row.status === idx || (typeof row.status !== 'string' && Number(row.status) === idx)) ? ' selected' : '';
+                html += '<option value="' + idx + '"' + selected + '>' + s + '</option>';
+            });
+            html += '</select></div>';
+
+            layer.open({
+                type: 1,
+                title: '修改状态',
+                area: ['320px','160px'],
+                content: html,
+                btn: ['确定','取消'],
+                yes: function(index){
+                    var newStatusVal = $('#newStatusSelect').val();
+                    layer.close(index);
+                    statusChanging = true;
+                    request({ url: API.updateStatus + row.id + '/status', method: 'POST', data: { status: newStatusVal } })
+                        .done(function(res){
+                            if(res && res.code === 0){
+                                layer.msg('修改成功', {icon:1});
+                                table.reload(tableId);
+                            } else {
+                                layer.msg(res && res.msg || '操作失败', {icon:2});
+                            }
+                        })
+                        .fail(function(){ layer.msg('网络错误', {icon:2}); })
+                        .always(function(){ statusChanging = false; });
+                },
+                btn2: function(index){
+                    layer.close(index);
+                }
+            });
+        }
+
+        // 删除
+        var deleting = false;
+        function confirmDelete(row){
+            if(deleting) return;
+            layer.confirm('确认删除订单 ' + escapeHtml(row.id) + ' ？', function(idx){
+                deleting = true;
+                request({ url: API.remove + row.id, method: 'DELETE' })
+                    .done(function(res){
+                        if(res && res.code === 0){ layer.msg('删除成功', {icon:1}); table.reload(tableId); }
+                        else layer.msg(res && res.msg || '删除失败', {icon:2});
+                    })
+                    .fail(function(){ layer.msg('网络错误', {icon:2}); })
+                    .always(function(){ deleting = false; layer.close(idx); });
+            });
+        }
+
+        // HTML 转义
+        function escapeHtml(str){
+            if(str === null || str === undefined) return '';
+            return String(str).replace(/[&<>"'`=\/]/g, function(s){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'" :'&#39;','`':'&#96;','=':'&#61;','/':'&#47;'}[s]; });
+        }
+    });
+</script>
+</body>
+</html>
